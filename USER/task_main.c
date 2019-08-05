@@ -4,6 +4,7 @@
 #include "usart.h"
 #include "inventr.h"
 #include "pwm.h"
+#include "event.h"
 
 
 TaskHandle_t xHandleTaskMAIN = NULL;
@@ -15,6 +16,8 @@ unsigned portBASE_TYPE MAIN_Satck;
 void vTaskMAIN(void *pvParameters)
 {
 	time_t times_sec = 0;
+	time_t time_cnt = 0;
+	u8 get_e_para_ok = 0;
 
 	GetTimeOK = GetSysTimeState();
 
@@ -47,7 +50,30 @@ void vTaskMAIN(void *pvParameters)
 			MirrorPowerInterface = PowerInterface;
 
 			SetLightLevel(PowerInterface, LightLevelPercent);
+
+			time_cnt = GetSysTick1s();		//复位获取当前状态电参数计时器
+			get_e_para_ok = 0;				//复位获取当前电参数标志 0:未获取 1:以获取
 		}
+		else
+		{
+			if(GetSysTick1s() - time_cnt >= EventDetectConf.current_detect_delay * 60 / 2)			//等到电流检测延时的1/2时采集电参数
+			{
+				if(get_e_para_ok == 0)		//未获取当前电参数
+				{
+					get_e_para_ok = 1;		//以获取当前电参数
+
+					FaultInputCurrent = InputCurrent;		//获取当前电流值
+					FaultInputVoltage = InputVoltage;		//获取当前电压值
+				}
+			}
+		}
+
+//		CheckEventsEC15(LightLevelPercent);	//单灯正常开灯记录
+//		CheckEventsEC16(LightLevelPercent);	//单灯正常关灯记录
+//		CheckEventsEC17(LightLevelPercent);	//单灯异常开灯记录
+//		CheckEventsEC18(LightLevelPercent);	//单灯异常关灯记录
+//		CheckEventsEC19(LightLevelPercent);	//单灯电流过大记录
+//		CheckEventsEC20(LightLevelPercent);	//单灯电流过小记录
 
 		if(ResetFlag == 1)								//接收到重启的命令
 		{
@@ -199,6 +225,9 @@ void AutoLoopRegularTimeGroups(u8 *percent)
 	u16 gate2 = 0;
 	u16 gate24 = 1440;	//24*60;
 	u16 gate_n = 0;
+	u32 gate_day_s = 0;
+	u32 gate_day_e = 0;
+	u32 gate_day_n = 0;
 
 	static u8 last_percent = 100;
 	static u8 current_percent = 100;
@@ -213,85 +242,82 @@ void AutoLoopRegularTimeGroups(u8 *percent)
 
 		for(tmp_time = RegularTimeHoliday->next; tmp_time != NULL; tmp_time = tmp_time->next)
 		{
-			if(tmp_time->range.year_s <= tmp_time->range.year_e)			//起始年早于等于结束年
-			{
-				if(tmp_time->range.year_s <= calendar.w_year - 2000 &&
-				   calendar.w_year - 2000 <= tmp_time->range.year_e)		//当前年处于起始和结束年之间
-				{
-					if(tmp_time->range.month_s <= tmp_time->range.month_e)
-					{
-						if(tmp_time->range.month_s <= calendar.w_month &&
-						   calendar.w_month <= tmp_time->range.month_e)
-						{
-							if(tmp_time->range.date_s <= tmp_time->range.date_e)
-							{
-								if(tmp_time->range.date_s <= calendar.w_date &&
-								   calendar.w_date <= tmp_time->range.date_e)
-								{
-									if(tmp_time->next != NULL)
-									{
-										if(tmp_time->next->hour   == calendar.hour &&
-										   tmp_time->next->minute == calendar.min)
-										{
-											tmp_time = tmp_time->next;
+//			if(tmp_time->range.year_s <= calendar.w_year - 2000 &&
+//			   calendar.w_year - 2000 <= tmp_time->range.year_e)		//当前年处于起始和结束年之间
+//			{
+//				if(tmp_time->range.month_s <= calendar.w_month &&
+//				   calendar.w_month <= tmp_time->range.month_e)
+//				{
+//					if(tmp_time->range.date_s <= calendar.w_date &&
+//					   calendar.w_date <= tmp_time->range.date_e)
+//					{
+						gate_day_s = get_days_form_calendar(tmp_time->range.year_s + 2000,tmp_time->range.month_s,tmp_time->range.date_s);
 
+						gate_day_e = get_days_form_calendar(tmp_time->range.year_e + 2000,tmp_time->range.month_e,tmp_time->range.date_e);
+
+						gate_day_n = get_days_form_calendar(calendar.w_year,calendar.w_month,calendar.w_date);
+
+						if(gate_day_s <= gate_day_n && gate_day_n <= gate_day_e)
+						{
+							if(tmp_time->hour 	== calendar.hour &&
+							   tmp_time->minute == calendar.min)		//判断当前时间是否同该条策略时间相同
+							{
+								ret = 1;
+							}
+							else if(tmp_time->next != NULL)
+							{
+								if(tmp_time->next->hour   == calendar.hour &&
+								   tmp_time->next->minute == calendar.min)
+								{
+									tmp_time = tmp_time->next;
+
+									ret = 1;
+								}
+								else
+								{
+									gate1 = tmp_time->hour * 60 + tmp_time->minute;
+									gate2 = tmp_time->next->hour * 60 + tmp_time->next->minute;
+									gate_n = calendar.hour * 60 + calendar.min;
+
+									if(gate1 < gate2)
+									{
+										if(gate1 <= gate_n && gate_n <= gate2)
+										{
 											ret = 1;
 										}
-										else
-										{
-											gate1 = tmp_time->hour * 60 + tmp_time->minute;
-											gate2 = tmp_time->next->hour * 60 + tmp_time->next->minute;
-											gate_n = calendar.hour * 60 + calendar.min;
-
-											if(gate1 < gate2)
-											{
-												if(gate1 <= gate_n && gate_n <= gate2)
-												{
-													ret = 1;
-												}
-											}
-											else if(gate1 > gate2)
-											{
-												if(gate1 <= gate_n && gate_n <= gate24)
-												{
-													ret = 1;
-												}
-												else if(gate0 <= gate_n && gate_n <= gate2)
-												{
-													ret = 1;
-												}
-											}
-										}
 									}
-									else
+									else if(gate1 > gate2)
 									{
-//										gate1 = tmp_time->hour * 60 + tmp_time->minute;					//该条策略的分钟数
-//										gate_n = calendar.hour * 60 + calendar.min;						//当前时间的分钟数
-
-//										if(gate_n >= gate1)
-//										{
-//											ret = 1;
-//										}
-
-										ret = 1;
+										if(gate1 <= gate_n && gate_n <= gate24)
+										{
+											ret = 1;
+										}
+										else if(gate0 <= gate_n && gate_n <= gate2)
+										{
+											ret = 1;
+										}
 									}
 								}
 							}
+							else
+							{
+								ret = 1;
+							}
 						}
-					}
-				}
-			}
+//					}
+//				}
+//			}
 
 			if(ret == 1)
 			{
 				current_percent = tmp_time->percent;
 
-				break;
+				goto UPDATE_PERCENT;
 			}
 		}
 	}
 
-	if(calendar.week <= 6 && ret == 0)				//判断是否是工作日
+	if(calendar.week <= 6)				//判断是否是工作日
 	{
 		if(RegularTimeWeekDay->next != NULL)		//判断策略列表是否不为空
 		{
@@ -341,14 +367,6 @@ void AutoLoopRegularTimeGroups(u8 *percent)
 				}
 				else
 				{
-//					gate1 = tmp_time->hour * 60 + tmp_time->minute;					//该条策略的分钟数
-//					gate_n = calendar.hour * 60 + calendar.min;						//当前时间的分钟数
-
-//					if(gate_n >= gate1)
-//					{
-//						ret = 1;
-//					}
-
 					ret = 1;
 				}
 
@@ -356,12 +374,13 @@ void AutoLoopRegularTimeGroups(u8 *percent)
 				{
 					current_percent = tmp_time->percent;
 
-					break;
+					goto UPDATE_PERCENT;
 				}
 			}
 		}
 	}
 
+	UPDATE_PERCENT:
 	if(last_percent != current_percent)
 	{
 		last_percent = current_percent;

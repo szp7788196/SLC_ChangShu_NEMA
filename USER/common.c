@@ -2,8 +2,6 @@
 #include "24cxx.h"
 #include "bcxx.h"
 
-
-
 pRegularTime RegularTimeWeekDay = NULL;			//工作日策略
 pRegularTime RegularTimeWeekEnd = NULL;			//周末策略
 pRegularTime RegularTimeHoliday = NULL;			//节假日策略
@@ -14,6 +12,8 @@ SemaphoreHandle_t  xMutex_IIC1 			= NULL;	//IIC总线1的互斥量
 SemaphoreHandle_t  xMutex_INVENTR 		= NULL;	//英飞特电源的互斥量
 SemaphoreHandle_t  xMutex_AT_COMMAND 	= NULL;	//AT指令的互斥量
 SemaphoreHandle_t  xMutex_STRATEGY 		= NULL;	//AT指令的互斥量
+SemaphoreHandle_t  xMutex_EVENT_RECORD 	= NULL;	//事件记录的互斥量
+SemaphoreHandle_t  xMutex_SYSYICK_1S 	= NULL;	//事件记录的互斥量
 
 /***************************消息队列相关*****************************/
 QueueHandle_t xQueue_sensor 		= NULL;	//用于存储传感器的数据
@@ -47,6 +47,16 @@ u8 SwitchState = 1;					//开关状态
 u8 LightLevelPercent = 100;			//灯的亮度级别
 u8 PowerInterface = 0;				//电源控制接口编号 0:0~10V 1:PWM 2:UART 3:DALI
 u8 DefaultLightLevelPercent = 100;	//灯的上电默认亮度级别
+
+float FaultInputCurrent = 0.0f;		//发生故障时的电流
+float FaultInputVoltage = 0.0f;		//发生故障时的电压
+
+u8 CalendarClock[6];
+
+EventDetectConf_S EventDetectConf;
+EventRecordList_S EventRecordList;
+
+
 
 /***************************其他*****************************/
 u8 GetTimeOK = 0;							//成功获取时间标志
@@ -535,6 +545,73 @@ s16 get_dates_diff(u8 m1,u8 d1,u8 m2,u8 d2)
 	return diff;
 }
 
+//闰年判断
+u8 leap_year_judge(u16 year)
+{
+	u16 leap = 0;
+
+	if(year % 400 == 0)
+	{
+		leap = 1;
+	}
+    else
+    {
+        if(year % 4 == 0 && year % 100 != 0)
+		{
+			leap = 1;
+		}
+        else
+		{
+			leap = 0;
+		}
+	}
+
+	return leap;
+}
+
+//闰年判断 返回当前年月日 在一年中的天数
+u32 get_days_form_calendar(u16 year,u8 month,u8 date)
+{
+	u16 i = 0;
+	u8 leap = 0;
+	u32 days = 0;
+	u8 x[13]={0,31,29,31,30,31,30,31,31,30,31,30,31};
+
+	for(i = 2000; i <= year; i ++)
+	{
+		leap = leap_year_judge(i);
+
+		if(leap == 1)
+		{
+			days += 366;
+		}
+		else if(leap == 0)
+		{
+			days += 365;
+		}
+	}
+
+	leap = leap_year_judge(year);
+
+	if(leap == 1)
+	{
+		x[2] = 29;
+	}
+	else if(leap == 0)
+	{
+		x[2] = 28;
+	}
+
+	for(i = 1; i < month; i ++)
+	{
+		days += x[i];			//整月的天数
+	}
+
+	days += (u16)date;			//日的天数
+
+	return days;
+}
+
 //产生一个系统1毫秒滴答时钟.
 void SysTick1msAdder(void)
 {
@@ -579,7 +656,21 @@ void SetSysTick1s(time_t sec)
 //获取系统1秒滴答时钟
 time_t GetSysTick1s(void)
 {
-	return SysTick1s;
+	time_t sec = 0;
+
+	if(xSchedulerRunning == 1)
+	{
+		xSemaphoreTake(xMutex_SYSYICK_1S, portMAX_DELAY);
+	}
+
+	sec = SysTick1s;
+
+	if(xSchedulerRunning == 1)
+	{
+		xSemaphoreGive(xMutex_SYSYICK_1S);
+	}
+
+	return sec;
 }
 
 //从EEPROM中读取数据(带CRC16校验码)len包括CRC16校验码
@@ -698,6 +789,151 @@ u8 CopyStrToPointer(u8 **pointer, u8 *str, u8 len)
 		memcpy(*pointer,str,len);
 
 		ret = 1;
+	}
+
+	return ret;
+}
+
+//终端事件检测配置时间参数
+u8 ReadEventDetectTimeConf(void)
+{
+	u8 ret = 0;
+	u8 buf[ER_TIME_CONF_LEN];
+
+	memset(buf,0,ER_TIME_CONF_LEN);
+
+	ret = ReadDataFromEepromToMemory(buf,ER_TIME_CONF_ADD,ER_TIME_CONF_LEN);
+
+	if(ret == 1)
+	{
+		EventDetectConf.comm_falut_detect_interval 		= *(buf + 0);
+		EventDetectConf.router_fault_detect_interval	= *(buf + 1);
+		EventDetectConf.turn_on_collect_delay 			= *(buf + 2);
+		EventDetectConf.turn_off_collect_delay 			= *(buf + 3);
+		EventDetectConf.current_detect_delay 			= *(buf + 4);
+	}
+	else
+	{
+		EventDetectConf.comm_falut_detect_interval 		= 3;
+		EventDetectConf.router_fault_detect_interval	= 3;
+		EventDetectConf.turn_on_collect_delay 			= 1;
+		EventDetectConf.turn_off_collect_delay 			= 1;
+		EventDetectConf.current_detect_delay 			= 10;
+	}
+
+	return ret;
+}
+
+//终端事件检测配置阈值参数
+u8 ReadEventDetectThreConf(void)
+{
+	u8 ret = 0;
+	u8 buf[ER_THRE_CONF_LEN];
+
+	memset(buf,0,ER_THRE_CONF_LEN);
+
+	ret = ReadDataFromEepromToMemory(buf,ER_THRE_CONF_ADD,ER_THRE_CONF_LEN);
+
+	if(ret == 1)
+	{
+		EventDetectConf.over_current_ratio 			= *(buf + 0);
+		EventDetectConf.over_current_recovery_ratio = *(buf + 1);
+		EventDetectConf.low_current_ratio 			= *(buf + 2);
+		EventDetectConf.low_current_recovery_ratio 	= *(buf + 3);
+
+		memcpy(EventDetectConf.capacitor_fault_pf_ratio,buf + 4,2);
+		memcpy(EventDetectConf.capacitor_fault_recovery_pf_ratio,buf + 6,2);
+
+		EventDetectConf.lamps_over_current_ratio 			= *(buf + 8);
+		EventDetectConf.lamps_over_current_recovery_ratio 	= *(buf + 9);
+		EventDetectConf.fuse_over_current_ratio 			= *(buf + 10);
+		EventDetectConf.fuse_over_current_recovery_ratio 	= *(buf + 11);
+		EventDetectConf.leakage_over_current_ratio 			= *(buf + 12);
+		EventDetectConf.leakage_over_current_recovery_ratio = *(buf + 13);
+		EventDetectConf.leakage_over_voltage_ratio 			= *(buf + 14);
+		EventDetectConf.leakage_over_voltage_recovery_ratio = *(buf + 15);
+	}
+	else
+	{
+		EventDetectConf.over_current_ratio 			= 10;
+		EventDetectConf.over_current_recovery_ratio = 5;
+		EventDetectConf.low_current_ratio 			= 10;
+		EventDetectConf.low_current_recovery_ratio 	= 5;
+
+		EventDetectConf.capacitor_fault_pf_ratio[0] = 0x13;				//50  单位0.01
+		EventDetectConf.capacitor_fault_pf_ratio[1] = 0x88;
+
+		EventDetectConf.capacitor_fault_recovery_pf_ratio[0] = 0x1B;	//70  单位0.01
+		EventDetectConf.capacitor_fault_recovery_pf_ratio[1] = 0x58;
+
+		EventDetectConf.lamps_over_current_ratio 			= 50;
+		EventDetectConf.lamps_over_current_recovery_ratio 	= 100;
+		EventDetectConf.fuse_over_current_ratio 			= 50;
+		EventDetectConf.fuse_over_current_recovery_ratio 	= 100;
+		EventDetectConf.leakage_over_current_ratio 			= 100;
+		EventDetectConf.leakage_over_current_recovery_ratio = 80;
+		EventDetectConf.leakage_over_voltage_ratio 			= 60;
+		EventDetectConf.leakage_over_voltage_recovery_ratio = 36;
+	}
+
+	return ret;
+}
+
+//事件记录表
+u8 ReadEventRecordList(void)
+{
+	u8 ret = 0;
+	u8 buf[EC1_LABLE_LEN];
+
+	memset(buf,0,EC1_LABLE_LEN);
+
+	ret = ReadDataFromEepromToMemory(buf,E_IMPORTANT_FLAG_ADD,E_IMPORTANT_FLAG_LEN);
+
+	if(ret == 1)
+	{
+		EventRecordList.important_event_flag = buf[0];
+	}
+	else
+	{
+		EventRecordList.important_event_flag = 0;
+	}
+
+	ret = ReadDataFromEepromToMemory(buf,EC1_ADD,EC1_LEN);
+
+	if(ret == 1)
+	{
+		EventRecordList.ec1 = buf[0];
+	}
+	else
+	{
+		EventRecordList.ec1 = 0;
+
+		EventRecordList.important_event_flag = 0;
+
+		WriteDataFromMemoryToEeprom(&EventRecordList.important_event_flag,E_IMPORTANT_FLAG_ADD, 1);
+
+		WriteDataFromMemoryToEeprom(&EventRecordList.ec1,EC1_ADD, 1);
+
+		WriteDataFromMemoryToEeprom(EventRecordList.lable1,EC1_LABLE_ADD, EC1_LABLE_LEN - 2);
+	}
+
+	ret = ReadDataFromEepromToMemory(buf,EC1_LABLE_ADD,EC1_LABLE_LEN);
+
+	if(ret == 1)
+	{
+		memcpy(EventRecordList.lable1,buf,EC1_LABLE_LEN - 2);
+	}
+	else
+	{
+		EventRecordList.important_event_flag = 0;
+
+		memset(EventRecordList.lable1,0,EC1_LABLE_LEN - 2);
+
+		WriteDataFromMemoryToEeprom(&EventRecordList.important_event_flag,E_IMPORTANT_FLAG_ADD, 1);
+
+		WriteDataFromMemoryToEeprom(EventRecordList.lable1,EC1_LABLE_ADD, EC1_LABLE_LEN - 2);
+
+		WriteDataFromMemoryToEeprom(&EventRecordList.ec1,EC1_ADD, 1);
 	}
 
 	return ret;
@@ -1467,6 +1703,9 @@ void ReadParametersFromEEPROM(void)
 	ReadServerPort();
 	ReadLampsSwitchProject();
 	ReadRegularTimeGroups();
+	ReadEventDetectTimeConf();
+	ReadEventDetectThreConf();
+	ReadEventRecordList();
 }
 
 //将数据打包成用户数据格式

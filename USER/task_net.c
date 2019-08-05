@@ -189,6 +189,12 @@ s16 SendEventRequestToServer(u8 *outbuf)
 			}
 		}
 	}
+//	else if(EventRecordList.important_event_flag == 1)
+//	{
+//		EventRecordList.important_event_flag = 0;
+//		
+//		send_len = CombineFaultEventFrame(outbuf);
+//	}
 
 	return (s16)send_len;
 }

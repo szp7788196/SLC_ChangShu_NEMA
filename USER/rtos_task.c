@@ -46,6 +46,18 @@ void AppObjCreate(void)
     {
         /* 没有创建成功，用户可以在这里加入创建失败的处理机制 */
     }
+	
+	xMutex_EVENT_RECORD = xSemaphoreCreateMutex();
+	if(xMutex_EVENT_RECORD == NULL)
+    {
+        /* 没有创建成功，用户可以在这里加入创建失败的处理机制 */
+    }
+	
+	xMutex_SYSYICK_1S = xSemaphoreCreateMutex();
+	if(xMutex_SYSYICK_1S == NULL)
+    {
+        /* 没有创建成功，用户可以在这里加入创建失败的处理机制 */
+    }
 }
 
 /*********************************************************************************************************

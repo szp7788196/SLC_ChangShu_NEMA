@@ -76,7 +76,7 @@ void vTaskSENSOR(void *pvParameters)
 				p_tSensorMsg->in_put_power_p 	= InputPowerP >= 0 ? (s16)(InputPowerP + 0.5f) : (s16)(InputPowerP - 0.5f);
 				p_tSensorMsg->in_put_power_q 	= InputPowerQ >= 0 ? (s16)(InputPowerQ + 0.5f) : (s16)(InputPowerQ - 0.5f);
 				p_tSensorMsg->in_put_power_s 	= (u16)(InputPowerS + 0.5f);
-				p_tSensorMsg->in_put_pf			= (u16)((p_tSensorMsg->in_put_power_p / p_tSensorMsg->in_put_power_s) * 100.0f + 0.5f);
+				p_tSensorMsg->in_put_pf			= (u16)((float)(p_tSensorMsg->in_put_power_p / (float)p_tSensorMsg->in_put_power_s) * 100.0f + 0.5f);
 				p_tSensorMsg->in_put_energy_p 	= (u32)(InputEnergyP * 1000.0f + 0.5f);
 				p_tSensorMsg->in_put_energy_q 	= (u32)(InputEnergyQ * 1000.0f + 0.5f);
 				p_tSensorMsg->in_put_energy_s 	= (u32)(InputEnergyS * 1000.0f + 0.5f);

@@ -102,6 +102,27 @@
 #define IMSI_LEN					15
 #define ICCID_LEN					20
 
+
+
+#define EVENT_ERC15					15
+#define EVENT_ERC16					16
+#define EVENT_ERC17					17
+#define EVENT_ERC18					18
+#define EVENT_ERC19					19
+#define EVENT_ERC20					20
+#define EVENT_ERC21					21
+#define EVENT_ERC22					22
+#define EVENT_ERC23					23
+#define EVENT_ERC28					28
+#define EVENT_ERC36					36
+#define EVENT_ERC37					37
+#define EVENT_ERC51					51
+#define EVENT_ERC52					52
+
+#define MAX_EVENT_NUM				256
+
+
+
 #define RE_UPLOAD_PARA_ADD			0		//重发参数
 #define RE_UPLOAD_PARA_LEN			4
 
@@ -163,6 +184,25 @@
 
 #define TIME_STRATEGY_ADD			2501	//定时策略
 #define	TIME_STRATEGY_LEN			9
+
+
+#define ER_TIME_CONF_ADD			3501	//事件记录时间参数配置
+#define ER_TIME_CONF_LEN			7
+
+#define ER_THRE_CONF_ADD			3508	//事件记录时间参数配置
+#define ER_THRE_CONF_LEN			18
+
+#define EC1_ADD						3526	//重要事件计数器EC1
+#define EC1_LEN						3
+
+#define EC1_LABLE_ADD				3532	//重要事件标签数组
+#define EC1_LABLE_LEN				130
+
+#define E_IMPORTANT_FLAG_ADD		3662	//重要事件标志
+#define E_IMPORTANT_FLAG_LEN		3
+
+#define E_IMPORTEAT_ADD				3701	//重要事件记录SOE
+#define EVENT_LEN					24
 
 
 
@@ -272,12 +312,46 @@ typedef struct FrameWareState				//固件升级状态信息
 	
 }FrameWareState_S;
 
+typedef struct EventDetectConf				//事件记录配置设置数据
+{
+	u8 comm_falut_detect_interval;			//终端通信故障检测时间间隔
+	u8 router_fault_detect_interval;		//集中器路由板故障检测时间间隔
+	u8 turn_on_collect_delay;				//单灯正常开灯采集延时
+	u8 turn_off_collect_delay;				//单灯正常关灯采集延时
+	u8 current_detect_delay;				//单灯电流检测延时时间
+	
+	u8 over_current_ratio;					//单灯电流过大事件电流限值比值
+	u8 over_current_recovery_ratio;			//单灯电流过大事件恢复电流限值比值
+	u8 low_current_ratio;					//单灯电流过小事件电流限值比值
+	u8 low_current_recovery_ratio;			//单灯电流过小事件恢复电流限值比值
+	u8 capacitor_fault_pf_ratio[2];			//单灯电容故障事件故障功率因数限值
+	u8 capacitor_fault_recovery_pf_ratio[2];//单灯电容故障事件故障恢复功率因数限值
+	u8 lamps_over_current_ratio;			//单灯灯具故障事件电流限值
+	u8 lamps_over_current_recovery_ratio;	//单灯灯具故障事件恢复电流限值
+	u8 fuse_over_current_ratio;				//单灯熔丝故障事件电流限值
+	u8 fuse_over_current_recovery_ratio;	//单灯熔丝故障事件恢复电流限值
+	u8 leakage_over_current_ratio;			//单灯漏电故障事件电流限值
+	u8 leakage_over_current_recovery_ratio;	//单灯漏电故障事件恢复电流限值
+	u8 leakage_over_voltage_ratio;			//单灯漏电故障事件电压限值
+	u8 leakage_over_voltage_recovery_ratio;	//单灯漏电故障事件恢复电压限值
+}EventDetectConf_S;
+
+typedef struct EventRecordList				//事件记录表
+{
+	u8 ec1;									//重要事件计数器
+	u8 lable1[128];							//重要事件标签
+	
+	u8 important_event_flag;				//系统中有重要事件标志
+}EventRecordList_S;
+
 
 
 extern SemaphoreHandle_t  xMutex_IIC1;			//IIC1的互斥量
 extern SemaphoreHandle_t  xMutex_INVENTR;		//英飞特电源的互斥量
 extern SemaphoreHandle_t  xMutex_AT_COMMAND;	//AT指令的互斥量
 extern SemaphoreHandle_t  xMutex_STRATEGY;		//AT指令的互斥量
+extern SemaphoreHandle_t  xMutex_EVENT_RECORD;	//事件记录的互斥量
+extern SemaphoreHandle_t  xMutex_SYSYICK_1S;	//事件记录的互斥量
 
 extern QueueHandle_t xQueue_sensor;				//用于存储传感器的数据
 
@@ -318,6 +392,14 @@ extern u8 SwitchMode;					//开关灯模式
 extern u8 SwitchState;					//开关状态
 extern u8 LightLevelPercent;			//灯的亮度级别
 
+extern float FaultInputCurrent;			//发生故障时的电流
+extern float FaultInputVoltage;			//发生故障时的电压
+
+extern u8 CalendarClock[6];
+
+extern EventDetectConf_S EventDetectConf;
+extern EventRecordList_S EventRecordList;
+
 /***************************其他*****************************/
 extern u8 GetTimeOK;								//成功获取时间标志
 
@@ -350,6 +432,8 @@ u8 GetSysTimeState(void);
 u16 get_day_num(u8 m,u8 d);
 void get_date_from_days(u16 days, u8 *m, u8 *d);
 s16 get_dates_diff(u8 m1,u8 d1,u8 m2,u8 d2);
+u8 leap_year_judge(u16 year);
+u32 get_days_form_calendar(u16 year,u8 month,u8 date);
 
 void SysTick1msAdder(void);
 u32 GetSysTick1ms(void);
@@ -364,7 +448,9 @@ u8 ReadDataFromEepromToMemory(u8 *buf,u16 s_add, u16 len);
 void WriteDataFromMemoryToEeprom(u8 *inbuf,u16 s_add, u16 len);
 u8 GetMemoryForSpecifyPointer(u8 **str,u16 size, u8 *memory);
 
-
+u8 ReadEventDetectTimeConf(void);
+u8 ReadEventDetectThreConf(void);
+u8 ReadEventRecordList(void);
 u8 ReadUpCommPortPara(void);
 u8 ReadDataUploadInterval(void);
 u8 ReadHeartBeatUploadInterval(void);

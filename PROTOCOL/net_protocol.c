@@ -205,13 +205,21 @@ u16 NetDataAnalysis(u8 *inbuf,u16 len,u8 *outbuf)
 		case 0x6E:		//固件升级命令
 			ret = SetFrameWareInfo(cmd_id,ctrl_code,msg,data_len,outbuf);
 		break;
-		
+
 		case 0x6F:		//设置上电默认亮度
 			ret = SetDefaultLightLevelPercent(cmd_id,ctrl_code,msg,data_len,outbuf);
 		break;
-		
+
 		case 0x70:		//设置错峰时间
 			ret = SetPeakStaggerTime(cmd_id,ctrl_code,msg,data_len,outbuf);
+		break;
+
+		case 0x71:		//设置故障检测延时参数
+			ret = SetFaultDetectDelayPara(cmd_id,ctrl_code,msg,data_len,outbuf);
+		break;
+
+		case 0x72:		//设置故障检测阈值参数
+			ret = SetFaultDetectThrePara(cmd_id,ctrl_code,msg,data_len,outbuf);
 		break;
 
 		case 0x90:		//读取超时时间、重发次数命令
@@ -261,12 +269,16 @@ u16 NetDataAnalysis(u8 *inbuf,u16 len,u8 *outbuf)
 		case 0x9B:		//读取上电默认亮度
 			ret = GetDefaultLightLevelPercent(cmd_id,ctrl_code,msg,data_len,outbuf);
 		break;
-		
+
 		case 0x9C:		//读取采集数据命令
 			ret = GetSensorData(cmd_id,ctrl_code,msg,data_len,outbuf);
 		break;
-		
+
 		case 0x9D:		//读取采集数据命令
+			ret = GetPeakStaggerTime(cmd_id,ctrl_code,msg,data_len,outbuf);
+		break;
+
+		case 0x9E:		//读取故障事件命令
 			ret = GetPeakStaggerTime(cmd_id,ctrl_code,msg,data_len,outbuf);
 		break;
 
@@ -297,7 +309,7 @@ u16 CombineLogin_outFrame(u8 mode,u8 *outbuf)
 	len = PackUserData(0x50,buf,23,outbuf + 3);
 
 	len = PackEventUploadData(outbuf + 3,len,outbuf);
-	
+
 	WaittingRsp = 1;
 	WaitRspCtrlCode = 0x50;
 
@@ -312,7 +324,7 @@ u16 CombineHeartBeatFrame(u8 *outbuf)
 	len = PackUserData(0x51,NULL,0,outbuf + 3);
 
 	len = PackEventUploadData(outbuf + 3,len,outbuf);
-	
+
 	WaittingRsp = 1;
 	WaitRspCtrlCode = 0x51;
 
@@ -331,7 +343,7 @@ u16 CombineSensorDataFrame(u8 *outbuf)
 	len = PackUserData(0x52,buf,len,outbuf + 3);
 
 	len = PackEventUploadData(outbuf + 3,len,outbuf);
-	
+
 	WaittingRsp = 1;
 	WaitRspCtrlCode = 0x52;
 
@@ -353,9 +365,104 @@ u16 CombineRequestFrameWareFrame(u8 *outbuf)
 	len = PackUserData(0x54,buf,4,outbuf + 3);
 
 	len = PackEventUploadData(outbuf + 3,len,outbuf);
-	
+
 	WaittingRsp = 1;
 	WaitRspCtrlCode = 0x54;
+
+	return len;
+}
+
+//合并故障事件报文
+u16 CombineFaultEventFrame(u8 *outbuf)
+{
+	u16 len = 0;
+
+	u8 ret = 0;
+	u8 temp0 = 0;
+	u8 buf[32];
+	u8 temp_buf[32];
+
+	switch(EventRecordList.lable1[EventRecordList.ec1 - 1])
+	{
+		case 15:
+			temp0 = 14;	//当前事件所占内存长度
+		break;
+
+		case 16:
+			temp0 = 14;
+		break;
+
+		case 17:
+			temp0 = 12;
+		break;
+
+		case 18:
+			temp0 = 12;
+		break;
+
+		case 19:
+			temp0 = 14;
+		break;
+
+		case 20:
+			temp0 = 14;
+		break;
+
+		case 21:
+			temp0 = 16;
+		break;
+
+		case 22:
+			temp0 = 16;
+		break;
+
+		case 23:
+			temp0 = 16;
+		break;
+
+		case 28:
+			temp0 = 21;
+		break;
+
+		case 36:
+			temp0 = 15;
+		break;
+
+		case 37:
+			temp0 = 11;
+		break;
+
+		case 51:
+			temp0 = 11;
+		break;
+
+		case 52:
+			temp0 = 20;
+		break;
+
+		default:
+		break;
+	}
+
+	buf[0] = EventRecordList.ec1;
+
+	ret = ReadDataFromEepromToMemory(temp_buf,E_IMPORTEAT_ADD + (EventRecordList.ec1 - 1) * EVENT_LEN,EVENT_LEN);	//从EEPROM中读取时间内容
+
+	if(ret == 1)
+	{
+		memcpy(&buf[1],temp_buf,temp0);			//读取成功 将时间内容放入数据单元
+	}
+	else
+	{
+		memset(&buf[1],0,temp0);					//读取失败 将数据单元清空
+	}
+
+	len = PackUserData(0x53,buf,temp0 + 1,outbuf + 3);
+
+	len = PackEventUploadData(outbuf + 3,len,outbuf);
+
+	WaittingRsp = 1;
+	WaitRspCtrlCode = 0x53;
 
 	return len;
 }
@@ -372,7 +479,7 @@ u8 UnPackAckPacket(u8 *inbuf,u8 len)
 			if(*(inbuf + 0) == WaitRspCtrlCode)
 			{
 				WaittingRsp = 0;
-				
+
 				if(WaitRspCtrlCode == 0x50)
 				{
 					LoginState = 1;
@@ -760,7 +867,7 @@ u16 SetLightLevelPercent(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outb
 //			WriteDataFromMemoryToEeprom(inbuf,
 //			                            LIGHT_LEVEL_ADD,
 //			                            LIGHT_LEVEL_LEN - 2);
-			
+
 			buf[1] = 0;
 		}
 	}
@@ -943,7 +1050,7 @@ u16 GetDeviceInfo(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
 		buf[79] = (u8)(DeviceInfo.protocol_ver & 0x00FF);
 		buf[80] = (u8)(DeviceInfo.hardware_ver >> 8);
 		buf[81] = (u8)(DeviceInfo.hardware_ver & 0x00FF);
-		memcpy(buf + 83,DeviceInfo.hardware_release_date,3);
+		memcpy(buf + 82,DeviceInfo.hardware_release_date,3);
 		buf[85] = (u8)(DeviceInfo.software_ver >> 8);
 		buf[86] = (u8)(DeviceInfo.software_ver & 0x00FF);
 		memcpy(buf + 87,DeviceInfo.software_release_date,3);
@@ -1074,6 +1181,75 @@ u16 SetPeakStaggerTime(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf
 		WriteDataFromMemoryToEeprom(inbuf,
 									PEAK_STAGGER_TIME_ADD,
 									PEAK_STAGGER_TIME_ADD - 2);
+
+		buf[1] = 0;
+	}
+
+	ret = PackAckPacket(cmd_id,0x80,buf,2,outbuf);
+
+	return ret;
+}
+
+//设置故障检测延时参数
+u16 SetFaultDetectDelayPara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
+{
+	u16 ret = 0;
+	u8 buf[2];
+
+	buf[0] = ctrl_code;
+	buf[1] = 1;
+
+	if(data_len == 5)
+	{
+		EventDetectConf.comm_falut_detect_interval 		= *(inbuf + 0);
+		EventDetectConf.router_fault_detect_interval	= *(inbuf + 1);
+		EventDetectConf.turn_on_collect_delay 			= *(inbuf + 2);
+		EventDetectConf.turn_off_collect_delay 			= *(inbuf + 3);
+		EventDetectConf.current_detect_delay 			= *(inbuf + 4);
+
+		WriteDataFromMemoryToEeprom(inbuf + 0,
+									ER_TIME_CONF_ADD,
+									ER_TIME_CONF_LEN - 2);	//将数据写入EEPROM
+
+		buf[1] = 0;
+	}
+
+	ret = PackAckPacket(cmd_id,0x80,buf,2,outbuf);
+
+	return ret;
+}
+
+//设置故障检测延时参数
+u16 SetFaultDetectThrePara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
+{
+	u16 ret = 0;
+	u8 buf[2];
+
+	buf[0] = ctrl_code;
+	buf[1] = 1;
+
+	if(data_len == 16)
+	{
+		EventDetectConf.over_current_ratio 			= *(inbuf + 0);
+		EventDetectConf.over_current_recovery_ratio = *(inbuf + 1);
+		EventDetectConf.low_current_ratio 			= *(inbuf + 2);
+		EventDetectConf.low_current_recovery_ratio 	= *(inbuf + 3);
+
+		memcpy(EventDetectConf.capacitor_fault_pf_ratio,inbuf + 4,2);
+		memcpy(EventDetectConf.capacitor_fault_recovery_pf_ratio,inbuf + 6,2);
+
+		EventDetectConf.lamps_over_current_ratio 			= *(inbuf + 8);
+		EventDetectConf.lamps_over_current_recovery_ratio 	= *(inbuf + 9);
+		EventDetectConf.fuse_over_current_ratio 			= *(inbuf + 10);
+		EventDetectConf.fuse_over_current_recovery_ratio 	= *(inbuf + 11);
+		EventDetectConf.leakage_over_current_ratio 			= *(inbuf + 12);
+		EventDetectConf.leakage_over_current_recovery_ratio = *(inbuf + 13);
+		EventDetectConf.leakage_over_voltage_ratio 			= *(inbuf + 14);
+		EventDetectConf.leakage_over_voltage_recovery_ratio = *(inbuf + 15);
+
+		WriteDataFromMemoryToEeprom(inbuf + 0,
+									ER_THRE_CONF_ADD,
+									ER_THRE_CONF_LEN - 2);	//将数据写入EEPROM
 
 		buf[1] = 0;
 	}
@@ -1408,6 +1584,293 @@ u16 GetPeakStaggerTime(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf
 		buf[3] = (u8)(FixedPeakStaggerTime & 0x00FF);
 
 		len = 4;
+	}
+
+	ret = PackAckPacket(cmd_id,ctrl_code,buf,len,outbuf);
+
+	return ret;
+}
+
+//获取故障事件命令
+u16 GetFaultEvents(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
+{
+	u16 ret = 0;
+	u8 buf[512];
+	u16 len = 0;
+	u8 temp0 = 0;
+	u16 temp6 = 0;
+	u8 temp_buf[64];
+	u16 i = 0;
+
+	if(data_len == 2)
+	{
+		buf[0] = EventRecordList.ec1;
+		buf[1] = *(inbuf + 0);
+		buf[2] = *(inbuf + 1);
+
+		temp6 = 0;	//每一个事件之间的偏移地址
+
+		if(*(inbuf + 0) < *(inbuf + 1))
+		{
+			for(i = *(inbuf + 0); i < *(inbuf + 1); i ++)
+			{
+				memset(temp_buf,0,32);
+
+				switch(EventRecordList.lable1[*(inbuf + i) - 1])
+				{
+					case 15:
+						temp0 = 14;	//当前事件所占内存长度
+					break;
+
+					case 16:
+						temp0 = 14;
+					break;
+
+					case 17:
+						temp0 = 12;
+					break;
+
+					case 18:
+						temp0 = 12;
+					break;
+
+					case 19:
+						temp0 = 14;
+					break;
+
+					case 20:
+						temp0 = 14;
+					break;
+
+					case 21:
+						temp0 = 16;
+					break;
+
+					case 22:
+						temp0 = 16;
+					break;
+
+					case 23:
+						temp0 = 16;
+					break;
+
+					case 28:
+						temp0 = 21;
+					break;
+
+					case 36:
+						temp0 = 15;
+					break;
+
+					case 37:
+						temp0 = 11;
+					break;
+
+					case 51:
+						temp0 = 11;
+					break;
+
+					case 52:
+						temp0 = 20;
+					break;
+
+					default:
+					break;
+				}
+
+				if(temp0 != 0)
+				{
+					ret = ReadDataFromEepromToMemory(temp_buf,E_IMPORTEAT_ADD + i * EVENT_LEN,EVENT_LEN);		//从EEPROM中读取时间内容
+
+					if(ret == 1)
+					{
+						memcpy(&buf[3 + temp6],temp_buf,temp0);			//读取成功 将时间内容放入数据单元
+					}
+					else
+					{
+						memset(&buf[3 + temp6],0,temp0);					//读取失败 将数据单元清空
+					}
+
+					temp6 += temp0;
+
+					temp0 = 0;
+				}
+			}
+		}
+		else
+		{
+			for(i = 0; i < *(inbuf + 1); i ++)
+			{
+				memset(temp_buf,0,32);
+
+				switch(EventRecordList.lable1[*(inbuf + i) - 1])
+				{
+					case 15:
+						temp0 = 14;
+					break;
+
+					case 16:
+						temp0 = 14;
+					break;
+
+					case 17:
+						temp0 = 12;
+					break;
+
+					case 18:
+						temp0 = 12;
+					break;
+
+					case 19:
+						temp0 = 15;
+					break;
+
+					case 20:
+						temp0 = 15;
+					break;
+
+					case 21:
+						temp0 = 17;
+					break;
+
+					case 22:
+						temp0 = 17;
+					break;
+
+					case 23:
+						temp0 = 17;
+					break;
+
+					case 28:
+						temp0 = 21;
+					break;
+
+					case 36:
+						temp0 = 16;
+					break;
+
+					case 37:
+						temp0 = 11;
+					break;
+
+					case 51:
+						temp0 = 17;
+					break;
+
+					case 52:
+						temp0 = 22;
+					break;
+
+					default:
+					break;
+				}
+
+				if(temp0 != 0)
+				{
+					ret = ReadDataFromEepromToMemory(temp_buf,E_IMPORTEAT_ADD + i * EVENT_LEN,EVENT_LEN);		//从EEPROM中读取时间内容
+
+					if(ret == 1)
+					{
+						memcpy(&buf[3 + temp6],temp_buf,temp0);			//读取成功 将时间内容放入数据单元
+					}
+					else
+					{
+						memset(&buf[3 + temp6],0,temp0);					//读取失败 将数据单元清空
+					}
+
+					temp6 += temp0;
+
+					temp0 = 0;
+				}
+			}
+
+			for(i = *(inbuf + 0); i <= 255; i ++)
+			{
+				memset(temp_buf,0,32);
+
+				switch(EventRecordList.lable1[*(inbuf + i) - 1])
+				{
+					case 15:
+						temp0 = 14;
+					break;
+
+					case 16:
+						temp0 = 14;
+					break;
+
+					case 17:
+						temp0 = 12;
+					break;
+
+					case 18:
+						temp0 = 12;
+					break;
+
+					case 19:
+						temp0 = 15;
+					break;
+
+					case 20:
+						temp0 = 15;
+					break;
+
+					case 21:
+						temp0 = 17;
+					break;
+
+					case 22:
+						temp0 = 17;
+					break;
+
+					case 23:
+						temp0 = 17;
+					break;
+
+					case 28:
+						temp0 = 21;
+					break;
+
+					case 36:
+						temp0 = 16;
+					break;
+
+					case 37:
+						temp0 = 11;
+					break;
+
+					case 51:
+						temp0 = 17;
+					break;
+
+					case 52:
+						temp0 = 22;
+					break;
+
+					default:
+					break;
+				}
+
+				if(temp0 != 0)
+				{
+					ret = ReadDataFromEepromToMemory(temp_buf,E_IMPORTEAT_ADD + i * EVENT_LEN,EVENT_LEN);		//从EEPROM中读取时间内容
+
+					if(ret == 1)
+					{
+						memcpy(&buf[3 + temp6],temp_buf,temp0);			//读取成功 将时间内容放入数据单元
+					}
+					else
+					{
+						memset(&buf[3 + temp6],0,temp0);					//读取失败 将数据单元清空
+					}
+
+					temp6 += temp0;
+
+					temp0 = 0;
+				}
+			}
+		}
+
+		len = temp6 + 3;
 	}
 
 	ret = PackAckPacket(cmd_id,ctrl_code,buf,len,outbuf);

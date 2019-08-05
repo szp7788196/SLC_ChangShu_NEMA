@@ -55,6 +55,20 @@ u8 RTC_Init(void)
 	}
 	else
 	{
+		RCC_LSEConfig(RCC_LSE_ON);
+		while (RCC_GetFlagStatus(RCC_FLAG_LSERDY) == RESET)
+		{
+			temp ++;
+			delay_ms(10);
+			IWDG_Feed();				//喂看门狗
+			if(temp >= 250)
+			{
+				RCC_LSICmd(ENABLE);
+				delay_ms(100);
+				break;
+			}
+		}
+		
 		RTC_WaitForSynchro();
 		RTC_ITConfig(RTC_IT_SEC, ENABLE);
 		RTC_WaitForLastTask();
@@ -280,6 +294,13 @@ u8 RTC_Get(void)
 	calendar.min = (temp % 3600) / 60;
 	calendar.sec = (temp % 3600) % 60;
 	calendar.week = RTC_Get_Week(calendar.w_year,calendar.w_month,calendar.w_date);
+	
+	CalendarClock[0] = calendar.w_year - 2000;
+	CalendarClock[1] = calendar.w_month;
+	CalendarClock[2] = calendar.w_date;
+	CalendarClock[3] = calendar.hour;
+	CalendarClock[4] = calendar.min;
+	CalendarClock[5] = calendar.sec;
 
 	return 0;
 }

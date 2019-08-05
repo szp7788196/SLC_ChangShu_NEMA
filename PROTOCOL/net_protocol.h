@@ -26,6 +26,7 @@ u16 CombineLogin_outFrame(u8 mode,u8 *outbuf);
 u16 CombineHeartBeatFrame(u8 *outbuf);
 u16 CombineSensorDataFrame(u8 *outbuf);
 u16 CombineRequestFrameWareFrame(u8 *outbuf);
+u16 CombineFaultEventFrame(u8 *outbuf);
 
 u16 RecvFrameWareBag(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 SetDeviveReset(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
@@ -45,6 +46,8 @@ u16 GetDeviceInfo(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 SetFrameWareInfo(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 SetDefaultLightLevelPercent(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 SetPeakStaggerTime(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
+u16 SetFaultDetectDelayPara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
+u16 SetFaultDetectThrePara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 GetReUpLoadPara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 GetHeartBeatUploadInterval(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 GetDataUploadInterval(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);

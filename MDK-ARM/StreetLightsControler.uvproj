@@ -437,6 +437,11 @@
               <FileType>1</FileType>
               <FilePath>..\USER\stm32f10x_it.c</FilePath>
             </File>
+            <File>
+              <FileName>event.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\USER\event.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

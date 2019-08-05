@@ -3,8 +3,11 @@
 #include "sys.h"
 
 
-#define RELAY_ON	GPIO_SetBits(GPIOC,GPIO_Pin_8);
-#define RELAY_OFF	GPIO_ResetBits(GPIOC,GPIO_Pin_8);
+//#define RELAY_ON	GPIO_SetBits(GPIOC,GPIO_Pin_8);
+//#define RELAY_OFF	GPIO_ResetBits(GPIOC,GPIO_Pin_8);
+
+#define RELAY_ON	GPIO_ResetBits(GPIOC,GPIO_Pin_8);
+#define RELAY_OFF	GPIO_SetBits(GPIOC,GPIO_Pin_8);
 
 
 extern u8 InventrBusy;
