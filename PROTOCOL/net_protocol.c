@@ -538,6 +538,12 @@ u16 RecvFrameWareBag(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
 	u8 *msg = NULL;
 	u16 crc_read = 0;
 	u16 crc_cal = 0;
+	u32 crc32_cal = 0xFFFFFFFF;
+	u32 crc32_read = 0;
+	u8 crc32_cal_buf[1024];
+	u32 file_len = 0;
+	u16 k_num = 0;
+	u16 last_k_byte_num = 0;
 	u16 temp = 0;
 
 	if(WaittingRsp == 1)
@@ -570,29 +576,73 @@ u16 RecvFrameWareBag(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
 		{
 			if(current_bags == FrameWareState.current_bag_cnt)
 			{
-				FLASH_Unlock();						//解锁FLASH
-
-				if(bag_size == FIRMWARE_BAG_SIZE)
-				{
-					for(i = 0; i < (FIRMWARE_BAG_SIZE - 2) / 2; i ++)
-					{
-						temp = ((u16)(*(msg + i * 2 + 1)) << 8) + (u16)(*(msg + i * 2));
-
-						FLASH_ProgramHalfWord(FIRMWARE_BUCKUP_FLASH_BASE_ADD + (current_bags - 1) * (FIRMWARE_BAG_SIZE - 2) + i * 2,temp);
-					}
-				}
-
-				FLASH_Lock();						//上锁
-
 				if(current_bags < FrameWareState.total_bags)
 				{
+					FLASH_Unlock();						//解锁FLASH
+
+					if(bag_size == FIRMWARE_BAG_SIZE)
+					{
+						for(i = 0; i < (FIRMWARE_BAG_SIZE - 2) / 2; i ++)
+						{
+							temp = ((u16)(*(msg + i * 2 + 1)) << 8) + (u16)(*(msg + i * 2));
+
+							FLASH_ProgramHalfWord(FIRMWARE_BUCKUP_FLASH_BASE_ADD + (current_bags - 1) * (FIRMWARE_BAG_SIZE - 2) + i * 2,temp);
+						}
+					}
+
+					FLASH_Lock();						//上锁
+
 					FrameWareState.current_bag_cnt ++;
 
 					FrameWareState.state = FIRMWARE_DOWNLOADING;	//当前包下载完成
 				}
 				else if(current_bags == FrameWareState.total_bags)
 				{
-					FrameWareState.state = FIRMWARE_DOWNLOADED;		//全部下载完成
+					crc32_read = (((u32)(*(msg + 0))) << 24) +
+					             (((u32)(*(msg + 1))) << 16) +
+					             (((u32)(*(msg + 2))) << 8) +
+					             (((u32)(*(msg + 3))));
+					
+					file_len = 256 * (FrameWareState.total_bags - 1);
+					
+					k_num = file_len / 1024;
+					last_k_byte_num = file_len % 1024;
+					if(last_k_byte_num > 0)
+					{
+						k_num += 1;
+					}
+
+					for(i = 0; i < k_num; i ++)
+					{
+						memset(crc32_cal_buf,0,1024);
+						if(i < k_num - 1)
+						{
+							STMFLASH_ReadBytes(FIRMWARE_BUCKUP_FLASH_BASE_ADD + 1024 * i,crc32_cal_buf,1024);
+							crc32_cal = CRC32(crc32_cal_buf,1024,crc32_cal,0);
+						}
+						if(i == k_num - 1)
+						{
+							if(last_k_byte_num == 0)
+							{
+								STMFLASH_ReadBytes(FIRMWARE_BUCKUP_FLASH_BASE_ADD + 1024 * i,crc32_cal_buf,1024);
+								crc32_cal = CRC32(crc32_cal_buf,1024,crc32_cal,1);
+							}
+							else if(last_k_byte_num > 0)
+							{
+								STMFLASH_ReadBytes(FIRMWARE_BUCKUP_FLASH_BASE_ADD + 1024 * i,crc32_cal_buf,last_k_byte_num);
+								crc32_cal = CRC32(crc32_cal_buf,last_k_byte_num,crc32_cal,1);
+							}
+						}
+					}
+
+					if(crc32_read == crc32_cal)
+					{
+						FrameWareState.state = FIRMWARE_DOWNLOADED;		//全部下载完成
+					}
+					else
+					{
+						FrameWareState.state = FIRMWARE_DOWNLOAD_FAILED;		//全部下载完成
+					}
 
 					WriteFrameWareStateToEeprom();
 				}

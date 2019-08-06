@@ -65,7 +65,7 @@ void vTaskSENSOR(void *pvParameters)
 			InputEnergyQ 	= Att7059xGetEnergyQ();
 			delay_ms(300);
 			InputEnergyS 	= Att7059xGetEnergyS();
-			
+
 			Temperature 	= GetNTC_Temperature();
 
 			if(ConnectState == ON_SERVER)					//设备此时是在线状态
@@ -90,7 +90,7 @@ void vTaskSENSOR(void *pvParameters)
 
 				p_tSensorMsg->year 				= calendar.w_year - 2000;
 				p_tSensorMsg->month 			= calendar.w_month;
-				p_tSensorMsg->date 			= calendar.w_date;
+				p_tSensorMsg->date 				= calendar.w_date;
 				p_tSensorMsg->hour 				= calendar.hour;
 				p_tSensorMsg->minute 			= calendar.min;
 				p_tSensorMsg->second 			= calendar.sec;

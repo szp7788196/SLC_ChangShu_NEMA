@@ -427,6 +427,7 @@ unsigned short get_str1(unsigned char *source, unsigned char *begin, unsigned sh
 unsigned short get_str2(unsigned char *source, unsigned char *begin, unsigned short count, unsigned short length, unsigned char *out);
 unsigned short get_str3(unsigned char *source, unsigned char *out, unsigned short length);
 u16 GetCRC16(u8 *data,u16 len);
+u32 CRC32(const u8 *buf, u32 size, u32 temp,u8 flag);
 u8 CalCheckSum(u8 *buf, u16 len);
 u8 GetSysTimeState(void);
 u16 get_day_num(u8 m,u8 d);
@@ -443,6 +444,9 @@ void SysTick100msAdder(void);
 u32 GetSysTick100ms(void);
 void SetSysTick1s(time_t sec);
 time_t GetSysTick1s(void);
+
+u8 STMFLASH_ReadByte(u32 faddr);
+void STMFLASH_ReadBytes(u32 ReadAddr,u8 *pBuffer,u16 NumToRead);
 
 u8 ReadDataFromEepromToMemory(u8 *buf,u16 s_add, u16 len);
 void WriteDataFromMemoryToEeprom(u8 *inbuf,u16 s_add, u16 len);
