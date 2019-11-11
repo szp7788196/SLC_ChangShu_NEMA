@@ -4,8 +4,8 @@
 #include "sys.h"
 #include "common.h"
 
-#define SWITCH_ON_MIN_CURRENT		25.0f
-#define SWITCH_OFF_MAX_CURRENT		50.0f
+#define SWITCH_ON_MIN_CURRENT		70.0f
+#define SWITCH_OFF_MAX_CURRENT		70.0f
 
 void RecordEventsECx(u8 ecx,u8 len,u8 *msg);
 void CheckEventsEC15(u8 light_level);

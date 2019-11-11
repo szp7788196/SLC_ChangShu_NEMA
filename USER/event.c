@@ -43,7 +43,7 @@ void RecordEventsECx(u8 ecx,u8 len,u8 *msg)
 
 	WriteDataFromMemoryToEeprom(&EventRecordList.ec1,EC1_ADD, 1);
 	
-	EventRecordList.important_event_flag = 1;
+	EventRecordList.important_event_flag ++;
 
 	if(xSchedulerRunning == 1)
 	{
@@ -64,6 +64,7 @@ void CheckEventsEC15(u8 light_level)
 	{
 		first = 0;
 		
+		cnt = GetSysTick1s();
 		mirror_level = light_level;
 	}
 
@@ -134,6 +135,7 @@ void CheckEventsEC16(u8 light_level)
 	{
 		first = 0;
 		
+		cnt = GetSysTick1s();
 		mirror_level = light_level;
 	}
 
@@ -337,6 +339,7 @@ void CheckEventsEC19(u8 light_level)
 	{
 		first = 0;
 		
+		time_cnt = GetSysTick1s();
 		mirror_level = light_level;
 	}
 
@@ -434,6 +437,7 @@ void CheckEventsEC20(u8 light_level)
 	{
 		first = 0;
 		
+		time_cnt = GetSysTick1s();
 		mirror_level = light_level;
 	}
 

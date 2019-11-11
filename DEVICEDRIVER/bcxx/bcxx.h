@@ -145,6 +145,7 @@ unsigned char bcxx_get_AT_NUESTATS(signed short *rsrp,
 unsigned char bcxx_get_AT_CGSN(void);
 unsigned char bcxx_get_AT_NCCID(void);
 unsigned char bcxx_get_AT_CIMI(void);
+unsigned char bcxx_set_AT_CGDCONT(u8 *apn);
 unsigned char bcxx_set_AT_CELL_RESELECTION(void);
 unsigned char bcxx_set_AT_NRB(void);
 unsigned char bcxx_set_AT_NCDP(char *addr, char *port);

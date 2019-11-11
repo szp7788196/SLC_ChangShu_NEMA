@@ -12,6 +12,7 @@
 #include "dali.h"
 #include "cd4051b.h"
 #include "ntc.h"
+#include "bcxx.h"
 
 u16 i = 0;
 u8 eepbuf[256];
@@ -24,6 +25,7 @@ int main(void)
 	SCB->VTOR = FLASH_BASE | 0x06000; 	/* Vector Table Relocation in Internal FLASH. */
 	IWDG_Init(IWDG_Prescaler_128,1600);	//128分频 312.5HZ 625为2秒
 
+	
 	RCC_GetClocksFreq(&RCC_Clocks);		//查看各个总线的时钟频率
 	__set_PRIMASK(1);	//关闭全局中断
 
@@ -44,7 +46,7 @@ int main(void)
 	UART4_Init(9600);
 
 	__set_PRIMASK(0);	//开启全局中断
-	
+
 //	FrameWareState.state 			= FIRMWARE_FREE;
 //	WriteFrameWareStateToEeprom();	//将固件升级状态写入EEPROM
 

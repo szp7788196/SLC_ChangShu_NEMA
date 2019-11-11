@@ -45,6 +45,11 @@
 
     typedef unsigned long long int  uint64;
     typedef long long int           int64;
+	
+
+#define CHINA_VERSION							//国内版本
+//#define THAILAND_VERSION						//泰国版本
+//#define DEBUG_VERSION							//测试版本
 
 
 #define FIRMWARE_FREE					0			//无需固件升级
@@ -66,9 +71,7 @@
 
 #define DEVICE_TYPE					'B'			//设备类型
 
-#define RELEASE_VERSION							//正式发布版本
-
-//#define DEBUG_LOG								//是否打印调试信息
+#define DEBUG_LOG								//是否打印调试信息
 
 #define NEW_BOARD
 
@@ -82,7 +85,7 @@
 #define INTFC_DIGIT					2			//数字调光
 #define INTFC_DALI					3			//DALI调光
 
-#define MAX_GROUP_NUM				100			//(255 - 11 - 6 - 36) / 7
+#define MAX_GROUP_NUM				100
 
 #define MAX_UPLOAD_INVL				65535
 
@@ -100,7 +103,8 @@
 
 #define IMEI_LEN					15
 #define IMSI_LEN					15
-#define ICCID_LEN					20
+#define ICCID19_LEN					19
+#define ICCID20_LEN					20
 
 
 
@@ -171,7 +175,7 @@
 #define SERVER_IP_ADD				108		//服务器IP存储地址
 #define SERVER_IP_LEN				18
 
-#define SERVER_PORT_ADD				124		//服务器端口号存储地址
+#define SERVER_PORT_ADD				126		//服务器端口号存储地址
 #define SERVER_PORT_LEN				8
 
 #define PEAK_STAGGER_TIME_ADD		134		//错峰时间存储地址
@@ -402,6 +406,7 @@ extern EventRecordList_S EventRecordList;
 
 /***************************其他*****************************/
 extern u8 GetTimeOK;								//成功获取时间标志
+extern u8 RefreshStrategy;							//刷新策略列表
 
 extern DeviceConfigPara_S DeviceConfigPara;			//设备基本信息
 extern LampsSwitchProject_S LampsSwitchProject;		//年表

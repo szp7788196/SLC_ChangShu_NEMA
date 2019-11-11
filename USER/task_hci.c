@@ -157,7 +157,7 @@ u16 HCI_DataAnalysis(u8 *inbuf,u16 inbuf_len,u8 *outbuf,u16 *msg_len)
 				strcat((char*)outbuf,"\",");
 
 				strcat((char*)outbuf,"\"Type\":\"20\",");
-				strcat((char*)outbuf,"\"Provider\":\"NN\",");
+				strcat((char*)outbuf,"\"Provider\":\"LK\",");
 
 				memset(temp_buf,0,32);
 				memcpy(temp_buf,DeviceInfo.iccid,20);

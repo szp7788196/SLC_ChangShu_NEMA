@@ -382,7 +382,9 @@ u16 CombineFaultEventFrame(u8 *outbuf)
 	u8 buf[32];
 	u8 temp_buf[32];
 
-	switch(EventRecordList.lable1[EventRecordList.ec1 - 1])
+	xSemaphoreTake(xMutex_EVENT_RECORD, portMAX_DELAY);
+
+	switch(EventRecordList.lable1[EventRecordList.ec1 - EventRecordList.important_event_flag])
 	{
 		case 15:
 			temp0 = 14;	//当前事件所占内存长度
@@ -446,7 +448,10 @@ u16 CombineFaultEventFrame(u8 *outbuf)
 
 	buf[0] = EventRecordList.ec1;
 
-	ret = ReadDataFromEepromToMemory(temp_buf,E_IMPORTEAT_ADD + (EventRecordList.ec1 - 1) * EVENT_LEN,EVENT_LEN);	//从EEPROM中读取时间内容
+	ret = ReadDataFromEepromToMemory(temp_buf,
+	                                 E_IMPORTEAT_ADD +
+	                                 (EventRecordList.ec1 - EventRecordList.important_event_flag) *
+	                                 EVENT_LEN,EVENT_LEN);	//从EEPROM中读取时间内容
 
 	if(ret == 1)
 	{
@@ -460,6 +465,13 @@ u16 CombineFaultEventFrame(u8 *outbuf)
 	len = PackUserData(0x53,buf,temp0 + 1,outbuf + 3);
 
 	len = PackEventUploadData(outbuf + 3,len,outbuf);
+
+	if(EventRecordList.important_event_flag != 0)
+	{
+		EventRecordList.important_event_flag --;
+	}
+
+	xSemaphoreGive(xMutex_EVENT_RECORD);
 
 	WaittingRsp = 1;
 	WaitRspCtrlCode = 0x53;
@@ -602,9 +614,9 @@ u16 RecvFrameWareBag(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
 					             (((u32)(*(msg + 1))) << 16) +
 					             (((u32)(*(msg + 2))) << 8) +
 					             (((u32)(*(msg + 3))));
-					
+
 					file_len = 256 * (FrameWareState.total_bags - 1);
-					
+
 					k_num = file_len / 1024;
 					last_k_byte_num = file_len % 1024;
 					if(last_k_byte_num > 0)
@@ -1066,6 +1078,8 @@ u16 SetTimeStrategy(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
 			}
 
 			buf[1] = 0;
+
+			RefreshStrategy = 1;	//需要刷新策略状态
 		}
 	}
 

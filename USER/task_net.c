@@ -113,7 +113,10 @@ s8 OnServerHandle(void)
 
 		HexToStr(str_buf,outbuf,len);
 
-		ret = bcxx_set_AT_QLWULDATA(len,str_buf);
+		if(ConnectState == ON_SERVER)
+		{
+			ret = bcxx_set_AT_QLWULDATA(len,str_buf);
+		}
 
 		myfree(str_buf);
 	}
@@ -130,18 +133,21 @@ s16 SendEventRequestToServer(u8 *outbuf)
 	static u8  download_failed_times = 0;
 	u16 send_len = 0;
 
-	if(LoginState == 0 && ConnectState == ON_SERVER)
+	if(LoginState == 0)
 	{
-		if(GetSysTick1s() - times_sec2 >= LoginStaggeredPeakInterval)
+		if(ConnectState == ON_SERVER)
 		{
-			times_sec2 = GetSysTick1s();
-
-			if(RandomPeakStaggerTime != 0)	//使用随机错峰时间
+			if(GetSysTick1s() - times_sec2 >= 20)
 			{
-				LoginStaggeredPeakInterval 	= LOGIN_OUT_TIMEOUT + rand() % RandomPeakStaggerTime;
-			}
+				times_sec2 = GetSysTick1s();
 
-			send_len = CombineLogin_outFrame(1,outbuf);
+				if(RandomPeakStaggerTime != 0)	//使用随机错峰时间
+				{
+					LoginStaggeredPeakInterval 	= LOGIN_OUT_TIMEOUT + rand() % RandomPeakStaggerTime;
+				}
+
+				send_len = CombineLogin_outFrame(1,outbuf);
+			}
 		}
 	}
 	else if(GetSysTick1s() - times_sec1 >= UploadDataStaggeredPeakInterval)
@@ -156,7 +162,7 @@ s16 SendEventRequestToServer(u8 *outbuf)
 
 		send_len = CombineSensorDataFrame(outbuf);
 	}
-	else if(GetSysTick1s() - times_sec2 >= HeartBeatStaggeredPeakInterval)
+	else if(GetSysTick1s() - times_sec2 >= 20)
 	{
 		times_sec2 = GetSysTick1s();
 
@@ -189,12 +195,10 @@ s16 SendEventRequestToServer(u8 *outbuf)
 			}
 		}
 	}
-//	else if(EventRecordList.important_event_flag == 1)
-//	{
-//		EventRecordList.important_event_flag = 0;
-//		
-//		send_len = CombineFaultEventFrame(outbuf);
-//	}
+	else if(EventRecordList.important_event_flag != 0)
+	{
+		send_len = CombineFaultEventFrame(outbuf);
+	}
 
 	return (s16)send_len;
 }
@@ -227,6 +231,10 @@ u8 SyncDataTimeFormM53xxModule(time_t sync_cycle)
 			time_s = mktime(&tm_time);
 
 			time_s += 28800;
+			
+#ifdef THAILAND_VERSION
+			time_s -= 3600;
+#endif
 
 			SyncTimeFromNet(time_s);
 

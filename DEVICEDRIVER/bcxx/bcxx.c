@@ -98,6 +98,9 @@ void bcxx_soft_init(void)
 
 	if(bcxx_get_AT_CIMI() != 1)
 		goto RE_INIT;
+	
+//	if(bcxx_set_AT_CGDCONT("nb.developer") != 1)
+//		goto RE_INIT;
 
 	printf("got imei\r\n");
 
@@ -283,9 +286,15 @@ unsigned char bcxx_get_AT_NCCID(void)
 
 		get_str1((unsigned char *)result_ptr->data, "NCCID:", 1, "\r\n", 2, (unsigned char *)buf);
 
-		if(strlen(buf) == ICCID_LEN)
+		if(strlen(buf) == ICCID19_LEN)
 		{
-			GetMemoryForSpecifyPointer(&DeviceInfo.iccid,ICCID_LEN,(u8 *)buf);
+			GetMemoryForSpecifyPointer(&DeviceInfo.iccid,ICCID19_LEN,(u8 *)buf);
+
+			ret = 1;
+		}
+		else if(strlen(buf) == ICCID20_LEN)
+		{
+			GetMemoryForSpecifyPointer(&DeviceInfo.iccid,ICCID20_LEN,(u8 *)buf);
 
 			ret = 1;
 		}
@@ -313,6 +322,23 @@ unsigned char bcxx_get_AT_CIMI(void)
 			ret = 1;
 		}
     }
+
+    return ret;
+}
+
+//…Ë÷√APN
+unsigned char bcxx_set_AT_CGDCONT(u8 *apn)
+{
+	unsigned char ret = 0;
+	
+	char cmd_tx_buf[32];
+
+	memset(cmd_tx_buf,0,32);
+
+//	sprintf(cmd_tx_buf,"AT+CGDCONT?\r\n");
+	sprintf(cmd_tx_buf,"AT+CGDCONT=0,\"IPV4V6\",\"%s\"\r\n",apn);
+
+    ret = SendCmd(cmd_tx_buf, "OK", 100,0,TIMEOUT_1S);
 
     return ret;
 }
