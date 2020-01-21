@@ -67,13 +67,21 @@
 
 typedef enum
 {
-    UNKNOW_STATE 	= 255,	//获取连接状态失败
-    GET_READY 		= 0,	//就绪状态
-    NEED_CLOSE 		= 1,	//需要关闭移动场景
-    NEED_WAIT 		= 2,	//需要等待
-	ON_SERVER 		= 4,	//连接建立成功
-	DISCONNECT		= 5,	//连接已断开
-	
+    UNKNOW_STATE 			= 255,	//获取连接状态失败
+    UNINITIALISED 			= 0,	//未初始化
+	MISSING_CONFIG 			= 1,	//配置丢失
+	INIITIALISING 			= 2,	//正在初始化
+	INIITIALISED 			= 3,	//初始化完成
+	INIT_FAILED 			= 4,	//初始化失败
+	REGISTERING 			= 5,	//正在注册
+	REGISTERED 				= 6,	//完成注册
+	DEREGISTERED 			= 7,	//完成注销
+	MO_DATA_ENABLED 		= 8,	//已上线
+	NO_UE_IP 				= 9,	//没有获取到IP
+	REJECTED_BY_SERVER 		= 10,	//服务器拒绝操作
+	TIMEOUT_AND_RETRYING 	= 11,	//超时重试
+	REG_FAILED 				= 12,	//注册失败
+	DEREG_FAILED 			= 13,	//注销失败
 } CONNECT_STATE_E;
 
 typedef enum
@@ -148,6 +156,7 @@ unsigned char bcxx_get_AT_CIMI(void);
 unsigned char bcxx_set_AT_CGDCONT(u8 *apn);
 unsigned char bcxx_set_AT_CELL_RESELECTION(void);
 unsigned char bcxx_set_AT_NRB(void);
+CONNECT_STATE_E bcxx_get_AT_NMSTATUS(void);
 unsigned char bcxx_set_AT_NCDP(char *addr, char *port);
 unsigned char bcxx_set_AT_CSCON(unsigned char cmd);
 unsigned char bcxx_set_AT_CEREG(unsigned char cmd);

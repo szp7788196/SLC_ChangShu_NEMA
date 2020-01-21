@@ -475,11 +475,11 @@ void SetLightLevel(u8 intfc_type, u8 level)
 			delay_ms(100);
 		}
 	}
-#ifdef NEW_BOARD	
+#ifdef NEW_BOARD
 	cd4051b_set_channel(intfc_type);
 	delay_ms(10);
 #endif
-	
+
 	switch(intfc_type)
 	{
 		case INTFC_0_10V:

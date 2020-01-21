@@ -298,7 +298,7 @@
               <OCR_RVCT4>
                 <Type>1</Type>
                 <StartAddress>0x8006000</StartAddress>
-                <Size>0x1c000</Size>
+                <Size>0x3d000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
                 <Type>1</Type>

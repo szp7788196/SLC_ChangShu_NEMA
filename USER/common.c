@@ -964,9 +964,9 @@ u8 ReadEventDetectThreConf(void)
 	}
 	else
 	{
-		EventDetectConf.over_current_ratio 			= 10;
+		EventDetectConf.over_current_ratio 			= 15;
 		EventDetectConf.over_current_recovery_ratio = 5;
-		EventDetectConf.low_current_ratio 			= 10;
+		EventDetectConf.low_current_ratio 			= 15;
 		EventDetectConf.low_current_recovery_ratio 	= 5;
 
 		EventDetectConf.capacitor_fault_pf_ratio[0] = 0x13;				//50  单位0.01
@@ -1098,7 +1098,7 @@ u8 ReadDataUploadInterval(void)
 	}
 	else
 	{
-		DataUploadInterval = 30;
+		DataUploadInterval = 3600;
 	}
 
 	return ret;
@@ -1516,6 +1516,20 @@ u8 UpdateSoftWareReleaseDate(void)
 	return ret;
 }
 
+//复位固件升级信息
+void ResetFrameWareState(void)
+{
+	FrameWareState.state 			= FIRMWARE_FREE;
+	FrameWareState.total_bags 		= 0;
+	FrameWareState.current_bag_cnt 	= 0;
+	FrameWareState.bag_size 		= 0;
+	FrameWareState.last_bag_size 	= 0;
+
+	FrameWareState.total_size 		= 0;
+
+	WriteFrameWareStateToEeprom();			//将默认值写入EEPROM
+}
+
 //读取固件设计状态
 u8 ReadFrameWareState(void)
 {
@@ -1550,15 +1564,8 @@ u8 ReadFrameWareState(void)
 	else
 	{
 		RESET_STATE:
-		FrameWareState.state 			= FIRMWARE_FREE;
-		FrameWareState.total_bags 		= 0;
-		FrameWareState.current_bag_cnt 	= 0;
-		FrameWareState.bag_size 		= 0;
-		FrameWareState.last_bag_size 	= 0;
-
-		FrameWareState.total_size 		= 0;
-
-		WriteFrameWareStateToEeprom();			//将默认值写入EEPROM
+		
+		ResetFrameWareState();
 	}
 
 	if(FrameWareState.state == FIRMWARE_DOWNLOADING ||
@@ -1604,10 +1611,10 @@ u8 ReadServerIP(void)
 	{
 		if(ServerIP == NULL)
 		{
-			ServerIP = (u8 *)mymalloc(sizeof(u8) * 64);
+			ServerIP = (u8 *)mymalloc(sizeof(u8) * 16);
 		}
 
-		memset(ServerIP,0,64);
+		memset(ServerIP,0,16);
 
 #if defined(CHINA_VERSION)
 		sprintf((char *)ServerIP, "117.60.157.137");

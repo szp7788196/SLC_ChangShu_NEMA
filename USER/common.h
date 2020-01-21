@@ -47,9 +47,9 @@
     typedef long long int           int64;
 	
 
-#define CHINA_VERSION							//国内版本
+//#define CHINA_VERSION							//国内版本
 //#define THAILAND_VERSION						//泰国版本
-//#define DEBUG_VERSION							//测试版本
+#define DEBUG_VERSION							//测试版本
 
 
 #define FIRMWARE_FREE					0			//无需固件升级
@@ -68,6 +68,7 @@
 #define FIRMWARE_BUCKUP_FLASH_BASE_ADD	0x08043000	//程序备份地址
 #define FIRMWARE_MAX_FLASH_ADD			0x08080000	//FLSAH最大地址
 #define FIRMWARE_SIZE					FIRMWARE_BUCKUP_FLASH_BASE_ADD - FIRMWARE_RUN_FLASH_BASE_ADD
+
 
 #define DEVICE_TYPE					'B'			//设备类型
 
@@ -478,6 +479,7 @@ u8 ReadFrameWareInfo(void);
 void WriteFrameWareStateToEeprom(void);
 u8 UpdateSoftWareVer(void);
 u8 UpdateSoftWareReleaseDate(void);
+void ResetFrameWareState(void);
 u8 ReadFrameWareState(void);
 u8 ReadServerIP(void);
 u8 ReadServerPort(void);

@@ -62,6 +62,7 @@ u16 GetTimeStrategy(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 GetDefaultLightLevelPercent(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 GetSensorData(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 GetPeakStaggerTime(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
+u16 GetFaultEvents(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 
 
 

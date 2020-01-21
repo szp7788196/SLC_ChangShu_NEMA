@@ -55,28 +55,41 @@ void vTaskNET(void *pvParameters)
 
 	while(1)
 	{
-		if(GetSysTick1s() - times_sec >= 30)			//每隔30秒钟获取一次信号强度
+		if(ConnectState == MO_DATA_ENABLED)
 		{
-			times_sec = GetSysTick1s();
-			bcxx_get_AT_CSQ(&NB_ModulePara.csq);
-			bcxx_get_AT_NUESTATS(&NB_ModulePara.rsrp,
-                                 &NB_ModulePara.rssi,
-                                 &NB_ModulePara.snr,
-                                 &NB_ModulePara.pci,
-                                 &NB_ModulePara.rsrq);
-
-			SyncDataTimeFormM53xxModule(3600);
-
-			if(ConnectState == UNKNOW_STATE)
+			if(GetSysTick1s() - times_sec >= 60)			//每隔30秒钟获取一次信号强度
 			{
-				if((err_cnt ++) >= 30)
-				{
-					goto RE_INIT;
-				}
+				times_sec = GetSysTick1s();
+				bcxx_get_AT_CSQ(&NB_ModulePara.csq);
+				bcxx_get_AT_NUESTATS(&NB_ModulePara.rsrp,
+									 &NB_ModulePara.rssi,
+									 &NB_ModulePara.snr,
+									 &NB_ModulePara.pci,
+									 &NB_ModulePara.rsrq);
+				ConnectState = bcxx_get_AT_NMSTATUS();
+
+				SyncDataTimeFormM53xxModule(3600);
 			}
-			else
+		}
+		else
+		{
+			if(GetSysTick1s() - times_sec >= 1)
 			{
-				err_cnt = 0;
+				times_sec = GetSysTick1s();
+
+				ConnectState = bcxx_get_AT_NMSTATUS();
+
+				if(ConnectState != MO_DATA_ENABLED)
+				{
+					if((err_cnt ++) >= 120)
+					{
+						goto RE_INIT;
+					}
+				}
+				else
+				{
+					err_cnt = 0;
+				}
 			}
 		}
 
@@ -113,7 +126,7 @@ s8 OnServerHandle(void)
 
 		HexToStr(str_buf,outbuf,len);
 
-		if(ConnectState == ON_SERVER)
+		if(ConnectState == MO_DATA_ENABLED)
 		{
 			ret = bcxx_set_AT_QLWULDATA(len,str_buf);
 		}
@@ -135,9 +148,13 @@ s16 SendEventRequestToServer(u8 *outbuf)
 
 	if(LoginState == 0)
 	{
-		if(ConnectState == ON_SERVER)
+		if(ConnectState == MO_DATA_ENABLED)
 		{
+#ifdef CHINA_VERSION
+			if(GetSysTick1s() - times_sec2 >= LoginStaggeredPeakInterval)
+#else
 			if(GetSysTick1s() - times_sec2 >= 20)
+#endif
 			{
 				times_sec2 = GetSysTick1s();
 
@@ -162,7 +179,11 @@ s16 SendEventRequestToServer(u8 *outbuf)
 
 		send_len = CombineSensorDataFrame(outbuf);
 	}
+#ifdef CHINA_VERSION
+	else if(GetSysTick1s() - times_sec2 >= HeartBeatStaggeredPeakInterval)
+#else
 	else if(GetSysTick1s() - times_sec2 >= 20)
+#endif
 	{
 		times_sec2 = GetSysTick1s();
 

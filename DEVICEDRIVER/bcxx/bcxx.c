@@ -243,6 +243,10 @@ unsigned char bcxx_set_AT_NBAND(unsigned char *imsi)
 	{
 		NB_ModulePara.band = 8;
 	}
+	
+#ifdef THAILAND_VERSION
+		NB_ModulePara.band = 8;
+#endif
 
 	sprintf(cmd_tx_buf,"AT+NBAND=%d\r\n",NB_ModulePara.band);
 
@@ -278,27 +282,45 @@ unsigned char bcxx_get_AT_CGSN(void)
 unsigned char bcxx_get_AT_NCCID(void)
 {
 	unsigned char ret = 0;
+	u8 i = 0;
 	char buf[32];
 
-    if(SendCmd("AT+NCCID\r\n", "OK", 100,0,TIMEOUT_5S) == 1)
-    {
-		memset(buf,0,32);
-
-		get_str1((unsigned char *)result_ptr->data, "NCCID:", 1, "\r\n", 2, (unsigned char *)buf);
-
-		if(strlen(buf) == ICCID19_LEN)
+	for(i = 0; i < 10; i ++)
+	{
+		if(SendCmd("AT+NCCID\r\n", "OK", 100,0,TIMEOUT_5S) == 1)
 		{
-			GetMemoryForSpecifyPointer(&DeviceInfo.iccid,ICCID19_LEN,(u8 *)buf);
+			memset(buf,0,32);
 
-			ret = 1;
+			get_str1((unsigned char *)result_ptr->data, "NCCID:", 1, "\r\n", 2, (unsigned char *)buf);
+
+			if(strlen(buf) == ICCID19_LEN)
+			{
+				GetMemoryForSpecifyPointer(&DeviceInfo.iccid,ICCID19_LEN,(u8 *)buf);
+
+				ret = 1;
+			}
+			else if(strlen(buf) == ICCID20_LEN)
+			{
+				GetMemoryForSpecifyPointer(&DeviceInfo.iccid,ICCID20_LEN,(u8 *)buf);
+
+				ret = 1;
+			}
+			
+			break;
 		}
-		else if(strlen(buf) == ICCID20_LEN)
+		else
 		{
-			GetMemoryForSpecifyPointer(&DeviceInfo.iccid,ICCID20_LEN,(u8 *)buf);
-
-			ret = 1;
+			if(i < 9)
+			{
+				delay_ms(5000);
+			}
+			else
+			{
+				break;
+			}
+			
 		}
-    }
+	}
 
     return ret;
 }
@@ -361,6 +383,85 @@ unsigned char bcxx_set_AT_NRB(void)
 	SendCmd("AT+NRB\r\n", "OK", 1000,0,TIMEOUT_10S);
 
 	ret = SendCmd("AT\r\n", "OK", 100,0,TIMEOUT_1S);
+
+    return ret;
+}
+
+//获取模组注册状态
+CONNECT_STATE_E bcxx_get_AT_NMSTATUS(void)
+{
+	CONNECT_STATE_E ret = UNKNOW_STATE;
+	char buf[32];
+
+    if(SendCmd("AT+NMSTATUS?\r\n", "OK", 100,0,TIMEOUT_1S) == 1)
+    {
+		memset(buf,0,32);
+
+		if(search_str((unsigned char *)result_ptr->data, "UNINITIALISED") != -1)
+		{
+			ret = UNINITIALISED;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "MISSING_CONFIG") != -1)
+		{
+			ret = MISSING_CONFIG;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "INIITIALISING") != -1)
+		{
+			ret = INIITIALISING;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "INIITIALISED") != -1)
+		{
+			ret = INIITIALISED;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "INIT_FAILED") != -1)
+		{
+			ret = INIT_FAILED;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "REGISTERING") != -1)
+		{
+			ret = REGISTERING;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "REGISTERED") != -1)
+		{
+			ret = REGISTERED;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "DEREGISTERED") != -1)
+		{
+			ret = DEREGISTERED;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "MO_DATA_ENABLED") != -1)
+		{
+			ret = MO_DATA_ENABLED;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "NO_UE_IP") != -1)
+		{
+			ret = NO_UE_IP;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "REJECTED_BY_SERVER") != -1)
+		{
+			ret = REJECTED_BY_SERVER;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "TIMEOUT_AND_RETRYING") != -1)
+		{
+			ret = TIMEOUT_AND_RETRYING;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "REG_FAILED") != -1)
+		{
+			ret = REG_FAILED;
+		}
+		else if(search_str((unsigned char *)result_ptr->data, "DEREG_FAILED") != -1)
+		{
+			ret = DEREG_FAILED;
+		}
+		else
+		{
+			ret = UNKNOW_STATE;
+		}
+    }
+	else
+	{
+		ret = UNKNOW_STATE;
+	}
 
     return ret;
 }

@@ -92,15 +92,15 @@ void CheckEventsEC15(u8 light_level)
 					{
 						buf[0] = 0x00;		//开灯成功数
 						buf[1] = 0x00;
-						buf[2] = 0x01;		//开灯失败数
-						buf[3] = 0x00;
+						buf[2] = 0x00;		//开灯失败数
+						buf[3] = 0x01;
 						buf[4] = 0x00;		//失败灯号
 						buf[5] = 0x01;
 					}
 					else												//开灯正常
 					{
-						buf[0] = 0x01;		//开灯成功数
-						buf[1] = 0x00;
+						buf[0] = 0x00;		//开灯成功数
+						buf[1] = 0x01;
 						buf[2] = 0x00;		//开灯失败数
 						buf[3] = 0x00;
 						buf[4] = 0x00;		//失败灯号
@@ -122,7 +122,7 @@ void CheckEventsEC15(u8 light_level)
 	}
 }
 
-//检测异常开灯事件
+//检测正常关灯
 void CheckEventsEC16(u8 light_level)
 {
 	static u8 mirror_level = 0;
@@ -163,15 +163,15 @@ void CheckEventsEC16(u8 light_level)
 					{
 						buf[0] = 0x00;		//开灯成功数
 						buf[1] = 0x00;
-						buf[2] = 0x01;		//开灯失败数
-						buf[3] = 0x00;
+						buf[2] = 0x00;		//开灯失败数
+						buf[3] = 0x01;
 						buf[4] = 0x00;		//失败灯号
 						buf[5] = 0x01;
 					}
 					else												//关灯正常
 					{
-						buf[0] = 0x01;		//开灯成功数
-						buf[1] = 0x00;
+						buf[0] = 0x00;		//开灯成功数
+						buf[1] = 0x01;
 						buf[2] = 0x00;		//开灯失败数
 						buf[3] = 0x00;
 						buf[4] = 0x00;		//失败灯号
@@ -326,7 +326,7 @@ void CheckEventsEC18(u8 light_level)
 }
 
 //检测单灯电流过大记录
-void CheckEventsEC19(u8 light_level)
+void CheckEventsEC19(u8 light_level,u8 get_e_para_ok)
 {
 	static u8 mirror_level = 0;
 	static time_t time_cnt = 0;
@@ -342,6 +342,11 @@ void CheckEventsEC19(u8 light_level)
 		time_cnt = GetSysTick1s();
 		mirror_level = light_level;
 	}
+	
+	if(light_level == 0)
+	{
+		return;
+	}
 
 	if(mirror_level != light_level)		//单灯状态有变化
 	{
@@ -351,8 +356,8 @@ void CheckEventsEC19(u8 light_level)
 
 		mirror_level = light_level;
 	}
-
-	if(GetSysTick1s() - time_cnt >= EventDetectConf.current_detect_delay * 60)	//等待一段时间，计算电流和电压
+	
+	if((GetSysTick1s() - time_cnt >= EventDetectConf.current_detect_delay * 60) && get_e_para_ok == 1)	//等待一段时间，计算电流和电压
 	{
 		if(occur == 0)
 		{
@@ -424,7 +429,7 @@ void CheckEventsEC19(u8 light_level)
 }
 
 //检测单灯电流过小记录
-void CheckEventsEC20(u8 light_level)
+void CheckEventsEC20(u8 light_level,u8 get_e_para_ok)
 {
 	static u8 mirror_level = 0;
 	static time_t time_cnt = 0;
@@ -440,6 +445,11 @@ void CheckEventsEC20(u8 light_level)
 		time_cnt = GetSysTick1s();
 		mirror_level = light_level;
 	}
+	
+	if(light_level == 0)
+	{
+		return;
+	}
 
 	if(mirror_level != light_level)
 	{
@@ -450,7 +460,7 @@ void CheckEventsEC20(u8 light_level)
 		mirror_level = light_level;
 	}
 
-	if(GetSysTick1s() - time_cnt >= EventDetectConf.current_detect_delay * 60)	//等待一段时间，计算电流和电压
+	if((GetSysTick1s() - time_cnt >= EventDetectConf.current_detect_delay * 60) && get_e_para_ok == 1)	//等待一段时间，计算电流和电压
 	{
 		if(occur == 0)
 		{

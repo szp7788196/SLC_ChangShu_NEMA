@@ -18,7 +18,7 @@ void vTaskLED(void *pvParameters)
 			IWDG_Feed();
 		}
 		
-		if(ConnectState == ON_SERVER)		//在线状态，每3秒短闪一次
+		if(ConnectState == MO_DATA_ENABLED)		//在线状态，每3秒短闪一次
 		{
 			if(cnt % 300 == 0)
 			{

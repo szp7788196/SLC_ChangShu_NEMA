@@ -279,7 +279,7 @@ u16 NetDataAnalysis(u8 *inbuf,u16 len,u8 *outbuf)
 		break;
 
 		case 0x9E:		//读取故障事件命令
-			ret = GetPeakStaggerTime(cmd_id,ctrl_code,msg,data_len,outbuf);
+			ret = GetFaultEvents(cmd_id,ctrl_code,msg,data_len,outbuf);
 		break;
 
 		case 0x80:		//事件响应
@@ -448,6 +448,9 @@ u16 CombineFaultEventFrame(u8 *outbuf)
 
 	buf[0] = EventRecordList.ec1;
 
+	buf[1] = EventRecordList.ec1 - EventRecordList.important_event_flag - 1;
+	buf[2] = EventRecordList.ec1 - EventRecordList.important_event_flag;
+
 	ret = ReadDataFromEepromToMemory(temp_buf,
 	                                 E_IMPORTEAT_ADD +
 	                                 (EventRecordList.ec1 - EventRecordList.important_event_flag) *
@@ -455,14 +458,14 @@ u16 CombineFaultEventFrame(u8 *outbuf)
 
 	if(ret == 1)
 	{
-		memcpy(&buf[1],temp_buf,temp0);			//读取成功 将时间内容放入数据单元
+		memcpy(&buf[3],temp_buf,temp0);			//读取成功 将时间内容放入数据单元
 	}
 	else
 	{
-		memset(&buf[1],0,temp0);					//读取失败 将数据单元清空
+		memset(&buf[3],0,temp0);					//读取失败 将数据单元清空
 	}
 
-	len = PackUserData(0x53,buf,temp0 + 1,outbuf + 3);
+	len = PackUserData(0x53,buf,temp0 + 3,outbuf + 3);
 
 	len = PackEventUploadData(outbuf + 3,len,outbuf);
 
@@ -1156,11 +1159,15 @@ u16 SetFrameWareInfo(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
 			{
 				buf[0] = 0;
 				buf[1] = 1;
+
+				ResetFrameWareState();
 			}
 			else if(FrameWareInfo.length > FIRMWARE_SIZE)
 			{
 				buf[0] = 0;
 				buf[1] = 2;
+
+				ResetFrameWareState();
 			}
 			else
 			{

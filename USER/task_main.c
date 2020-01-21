@@ -72,10 +72,10 @@ void vTaskMAIN(void *pvParameters)
 		CheckEventsEC16(LightLevelPercent);	//单灯正常关灯记录
 		CheckEventsEC17(LightLevelPercent);	//单灯异常开灯记录
 		CheckEventsEC18(LightLevelPercent);	//单灯异常关灯记录
-		CheckEventsEC19(LightLevelPercent);	//单灯电流过大记录
-		CheckEventsEC20(LightLevelPercent);	//单灯电流过小记录
+		CheckEventsEC19(LightLevelPercent,get_e_para_ok);	//单灯电流过大记录
+		CheckEventsEC20(LightLevelPercent,get_e_para_ok);	//单灯电流过小记录
 
-		if(ResetFlag == 1)								//接收到重启的命令
+		if(ResetFlag == 1)									//接收到重启的命令
 		{
 			ResetFlag = 0;
 			delay_ms(5000);
