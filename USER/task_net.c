@@ -146,7 +146,7 @@ s16 SendEventRequestToServer(u8 *outbuf)
 	static u8  download_failed_times = 0;
 	u16 send_len = 0;
 
-	if(LoginState == 0)
+	if(LoginState == 1)
 	{
 		if(ConnectState == MO_DATA_ENABLED)
 		{
@@ -160,14 +160,18 @@ s16 SendEventRequestToServer(u8 *outbuf)
 
 				if(RandomPeakStaggerTime != 0)	//使用随机错峰时间
 				{
-					LoginStaggeredPeakInterval 	= LOGIN_OUT_TIMEOUT + rand() % RandomPeakStaggerTime;
+					LoginStaggeredPeakInterval = LOGIN_OUT_TIMEOUT + rand() % RandomPeakStaggerTime;
 				}
 
 				send_len = CombineLogin_outFrame(1,outbuf);
 			}
 		}
 	}
+#ifdef CHINA_VERSION
 	else if(GetSysTick1s() - times_sec1 >= UploadDataStaggeredPeakInterval)
+#else
+	else if(GetSysTick1s() - times_sec1 >= 20)
+#endif
 	{
 		times_sec1 = GetSysTick1s();
 		times_sec2 = GetSysTick1s();

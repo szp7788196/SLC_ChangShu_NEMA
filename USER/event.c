@@ -8,6 +8,11 @@ void RecordEventsECx(u8 ecx,u8 len,u8 *msg)
 	u16 crc_cal = 0;
 	u16 add_pos = 0;
 	u8 buf[24];
+
+	if((EventEffective & ((long long)1 << ((long long)ecx - 1))) == 0x00)
+	{
+		return;
+	}
 	
 	if(xSchedulerRunning == 1)
 	{
@@ -42,7 +47,7 @@ void RecordEventsECx(u8 ecx,u8 len,u8 *msg)
 	EventRecordList.ec1 ++;				//更新事件计数器
 
 	WriteDataFromMemoryToEeprom(&EventRecordList.ec1,EC1_ADD, 1);
-	
+
 	EventRecordList.important_event_flag ++;
 
 	if(xSchedulerRunning == 1)
@@ -59,11 +64,11 @@ void CheckEventsEC15(u8 light_level)
 	static u8 state_change = 0;
 	static u8 first = 1;
 	u8 buf[6];
-	
+
 	if(first == 1)
 	{
 		first = 0;
-		
+
 		cnt = GetSysTick1s();
 		mirror_level = light_level;
 	}
@@ -108,10 +113,10 @@ void CheckEventsEC15(u8 light_level)
 					}
 
 					RecordEventsECx(EVENT_ERC15,6,buf);
-					
+
 				}
 			}
-			
+
 			mirror_level = light_level;
 		}
 	}
@@ -130,11 +135,11 @@ void CheckEventsEC16(u8 light_level)
 	static u8 state_change = 0;
 	static u8 first = 1;
 	u8 buf[6];
-	
+
 	if(first == 1)
 	{
 		first = 0;
-		
+
 		cnt = GetSysTick1s();
 		mirror_level = light_level;
 	}
@@ -195,30 +200,38 @@ void CheckEventsEC16(u8 light_level)
 //单灯异常开灯
 void CheckEventsEC17(u8 light_level)
 {
-	static s8 cnt = 0;
+	static s16 cnt = 0;
 	static u8 occur = 0;
 	u8 buf[4];
 
-	if(light_level == 0)			//上个状态为关灯
+	if(light_level == 0)			//现在状态为关灯
 	{
 		if(InputCurrent > SWITCH_OFF_MAX_CURRENT)				//异常开灯
 		{
 			if(occur == 0)
 			{
-				if(cnt < 100)
+				if(cnt < 1200)
 				{
 					cnt ++;
 				}
+			}
+			else if(cnt < 0)
+			{
+				cnt = 0;
 			}
 		}
 		else
 		{
 			if(occur == 1)
 			{
-				if(cnt > -100)
+				if(cnt > -1200)
 				{
 					cnt --;
 				}
+			}
+			else if(cnt > 0)
+			{
+				cnt = 0;
 			}
 		}
 	}
@@ -228,7 +241,7 @@ void CheckEventsEC17(u8 light_level)
 		occur = 0;
 	}
 
-	if(cnt >= 100)
+	if(cnt >= 1200)
 	{
 		cnt = 0;
 		occur = 1;
@@ -242,7 +255,7 @@ void CheckEventsEC17(u8 light_level)
 
 		RecordEventsECx(EVENT_ERC17,4,buf);
 	}
-	else if(cnt <= -100)
+	else if(cnt <= -1200)
 	{
 		cnt = 0;
 		occur = 0;
@@ -261,32 +274,39 @@ void CheckEventsEC17(u8 light_level)
 //单灯异常关灯
 void CheckEventsEC18(u8 light_level)
 {
-	static s8 cnt = 0;
+	static s16 cnt = 0;
 	static u8 occur = 0;
 	u8 buf[4];
 
-	if(light_level >= 1)			//现在状态为开灯
+	if(light_level == 100)			//现在状态为开灯
 	{
-		if(InputCurrent <= SWITCH_ON_MIN_CURRENT)		//异常开灯
+		if(InputCurrent <= SWITCH_ON_MIN_CURRENT)		//异常关灯
 		{
 			if(occur == 0)
 			{
-				if(cnt < 100)
+				if(cnt < 1200)
 				{
 					cnt ++;
 				}
+			}
+			else if(cnt < 0)
+			{
+				cnt = 0;
 			}
 		}
 		else
 		{
 			if(occur == 1)
 			{
-				if(cnt > -100)
+				if(cnt > -1200)
 				{
 					cnt --;
 				}
 			}
-
+			else if(cnt > 0)
+			{
+				cnt = 0;
+			}
 		}
 	}
 	else
@@ -295,7 +315,7 @@ void CheckEventsEC18(u8 light_level)
 		occur = 0;
 	}
 
-	if(cnt >= 100)
+	if(cnt >= 1200)
 	{
 		cnt = 0;
 		occur = 1;
@@ -309,7 +329,7 @@ void CheckEventsEC18(u8 light_level)
 
 		RecordEventsECx(EVENT_ERC18,4,buf);
 	}
-	else if(cnt <= -100)
+	else if(cnt <= -1200)
 	{
 		cnt = 0;
 		occur = 0;
@@ -329,101 +349,89 @@ void CheckEventsEC18(u8 light_level)
 void CheckEventsEC19(u8 light_level,u8 get_e_para_ok)
 {
 	static u8 mirror_level = 0;
-	static time_t time_cnt = 0;
 	static u8 occur = 0;
-	static s8 cnt = 0;
+	static s16 cnt = 0;
 	static u8 first = 1;
 	u8 buf[7];
-	
+
 	if(first == 1)
 	{
 		first = 0;
-		
-		time_cnt = GetSysTick1s();
+
 		mirror_level = light_level;
 	}
-	
-	if(light_level == 0)
+
+	if(light_level < 20 || get_e_para_ok == 0)
 	{
 		return;
 	}
 
 	if(mirror_level != light_level)		//单灯状态有变化
 	{
-		time_cnt = GetSysTick1s();
 		occur = 0;
 		cnt = 0;
 
 		mirror_level = light_level;
 	}
-	
-	if((GetSysTick1s() - time_cnt >= EventDetectConf.current_detect_delay * 60) && get_e_para_ok == 1)	//等待一段时间，计算电流和电压
+
+	if(occur == 0)
 	{
-		if(occur == 0)
+		if((InputCurrent - FaultInputCurrent) / FaultInputCurrent >=
+		  (float)EventDetectConf.over_current_ratio / 100.0f)
 		{
-			if((InputCurrent - FaultInputCurrent) / FaultInputCurrent >=
-			  (float)EventDetectConf.over_current_ratio / 100.0f)
+			if(cnt < 1200)
 			{
-				if(cnt < 100)
-				{
-					cnt ++;
-				}
-			}
-			else
-			{
-				if(cnt > 0)
-				{
-					cnt --;
-				}
-			}
-
-			if(cnt >= 100)
-			{
-				cnt = 0;
-				occur = 1;
-
-				buf[0] = 0x01;														//记录类型
-				buf[1] = 0x00;														//灯具序号
-				buf[2] = 0x01;
-				buf[3] = (u8)((((u16)InputCurrent) >> 8) & 0x00FF);					//发生时电流
-				buf[4] = (u8)(((u16)InputCurrent) & 0x00FF);
-				buf[5] = light_level;												//发生时控制状态
-
-				RecordEventsECx(EVENT_ERC19,6,buf);
+				cnt ++;
 			}
 		}
-		else if(occur == 1)
+		else
 		{
-			if((InputCurrent - FaultInputCurrent) / FaultInputCurrent <=
-			  (float)EventDetectConf.over_current_recovery_ratio / 100.0f)
-			{
-				if(cnt < 100)
-				{
-					cnt ++;
-				}
-			}
-			else
-			{
-				if(cnt > 0)
-				{
-					cnt --;
-				}
-			}
+			cnt = 0;
+		}
 
-			if(cnt >= 100)
+		if(cnt >= 1200)
+		{
+			cnt = 0;
+			occur = 1;
+
+			buf[0] = 0x01;														//记录类型
+			buf[1] = 0x00;														//灯具序号
+			buf[2] = 0x01;
+			buf[3] = (u8)((((u16)InputCurrent) >> 8) & 0x00FF);					//发生时电流
+			buf[4] = (u8)(((u16)InputCurrent) & 0x00FF);
+			buf[5] = light_level;												//发生时控制状态
+
+			RecordEventsECx(EVENT_ERC19,6,buf);
+		}
+	}
+	else if(occur == 1)
+	{
+		if((InputCurrent - FaultInputCurrent) / FaultInputCurrent <=
+		  (float)EventDetectConf.over_current_recovery_ratio / 100.0f)
+		{
+			if(cnt < 1200)
 			{
-				cnt = 0;
-				occur = 0;
-
-				buf[0] = 0x00;
-				buf[1] = 0x00;		//灯具序号
-				buf[2] = 0x01;
-				buf[3] = (u8)((((u16)InputCurrent) >> 8) & 0x00FF);					//发生时电流
-				buf[4] = (u8)(((u16)InputCurrent) & 0x00FF);
-				buf[5] = light_level;
-
-				RecordEventsECx(EVENT_ERC19,6,buf);
+				cnt ++;
 			}
+		}
+		else
+		{
+			cnt = 0;
+		}
+
+		if(cnt >= 1200)
+		{
+			cnt = 0;
+			occur = 0;
+
+			buf[0] = 0x00;
+			buf[1] = 0x00;		//灯具序号
+			buf[2] = 0x01;
+			buf[3] = (u8)((((u16)InputCurrent) >> 8) & 0x00FF);					//发生时电流
+			buf[4] = (u8)(((u16)InputCurrent) & 0x00FF);
+			buf[5] = light_level;
+
+			RecordEventsECx(EVENT_ERC19,6,buf);
 		}
 	}
 }
@@ -432,101 +440,89 @@ void CheckEventsEC19(u8 light_level,u8 get_e_para_ok)
 void CheckEventsEC20(u8 light_level,u8 get_e_para_ok)
 {
 	static u8 mirror_level = 0;
-	static time_t time_cnt = 0;
 	static u8 occur = 0;
-	static s8 cnt = 0;
+	static s16 cnt = 0;
 	static u8 first = 1;
 	u8 buf[7];
-	
+
 	if(first == 1)
 	{
 		first = 0;
-		
-		time_cnt = GetSysTick1s();
+
 		mirror_level = light_level;
 	}
-	
-	if(light_level == 0)
+
+	if(light_level < 20 || get_e_para_ok == 0)
 	{
 		return;
 	}
 
 	if(mirror_level != light_level)
 	{
-		time_cnt = GetSysTick1s();
 		occur = 0;
 		cnt = 0;
 
 		mirror_level = light_level;
 	}
 
-	if((GetSysTick1s() - time_cnt >= EventDetectConf.current_detect_delay * 60) && get_e_para_ok == 1)	//等待一段时间，计算电流和电压
+	if(occur == 0)
 	{
-		if(occur == 0)
+		if((FaultInputCurrent - InputCurrent) / FaultInputCurrent >=
+		  (float)EventDetectConf.low_current_ratio / 100.0f)
 		{
-			if((FaultInputCurrent - InputCurrent) / FaultInputCurrent >=
-			  (float)EventDetectConf.low_current_ratio / 100.0f)
+			if(cnt < 1200)
 			{
-				if(cnt < 100)
-				{
-					cnt ++;
-				}
-			}
-			else
-			{
-				if(cnt > 0)
-				{
-					cnt --;
-				}
-			}
-
-			if(cnt >= 100)
-			{
-				cnt = 0;
-				occur = 1;
-
-				buf[0] = 0x01;														//记录类型
-				buf[1] = 0x00;														//灯具序号
-				buf[2] = 0x01;
-				buf[3] = (u8)((((u16)InputCurrent) >> 8) & 0x00FF);					//发生时电流
-				buf[4] = (u8)(((u16)InputCurrent) & 0x00FF);
-				buf[5] = light_level;	
-
-				RecordEventsECx(EVENT_ERC20,6,buf);
+				cnt ++;
 			}
 		}
-		else if(occur == 1)
+		else
 		{
-			if((FaultInputCurrent - InputCurrent) / FaultInputCurrent <=
-			  (float)EventDetectConf.low_current_recovery_ratio / 100.0f)
-			{
-				if(cnt < 100)
-				{
-					cnt ++;
-				}
-			}
-			else
-			{
-				if(cnt > 0)
-				{
-					cnt --;
-				}
-			}
+			cnt = 0;
+		}
 
-			if(cnt >= 100)
+		if(cnt >= 1200)
+		{
+			cnt = 0;
+			occur = 1;
+
+			buf[0] = 0x01;														//记录类型
+			buf[1] = 0x00;														//灯具序号
+			buf[2] = 0x01;
+			buf[3] = (u8)((((u16)InputCurrent) >> 8) & 0x00FF);					//发生时电流
+			buf[4] = (u8)(((u16)InputCurrent) & 0x00FF);
+			buf[5] = light_level;
+
+			RecordEventsECx(EVENT_ERC20,6,buf);
+		}
+	}
+	else if(occur == 1)
+	{
+		if((FaultInputCurrent - InputCurrent) / FaultInputCurrent <=
+		  (float)EventDetectConf.low_current_recovery_ratio / 100.0f)
+		{
+			if(cnt < 1200)
 			{
-				cnt = 0;
-				occur = 0;
-
-				buf[0] = 0x00;														//记录类型
-				buf[1] = 0x00;														//灯具序号
-				buf[2] = 0x01;
-				buf[3] = (u8)((((u16)InputCurrent) >> 8) & 0x00FF);					//发生时电流
-				buf[4] = (u8)(((u16)InputCurrent) & 0x00FF);
-				buf[5] = light_level;	
-
-				RecordEventsECx(EVENT_ERC20,6,buf);
+				cnt ++;
 			}
+		}
+		else
+		{
+			cnt = 0;
+		}
+
+		if(cnt >= 1200)
+		{
+			cnt = 0;
+			occur = 0;
+
+			buf[0] = 0x00;														//记录类型
+			buf[1] = 0x00;														//灯具序号
+			buf[2] = 0x01;
+			buf[3] = (u8)((((u16)InputCurrent) >> 8) & 0x00FF);					//发生时电流
+			buf[4] = (u8)(((u16)InputCurrent) & 0x00FF);
+			buf[5] = light_level;
+
+			RecordEventsECx(EVENT_ERC20,6,buf);
 		}
 	}
 }
@@ -551,7 +547,7 @@ void CheckEventsEC51(u8 result,u16 version)
 {
 	u8 buf[3];
 
-	memset(buf,0,9);
+	memset(buf,0,3);
 
 	buf[0] = result;			//记录类型 成功或失败
 	buf[1] = (u8)((version >> 8) & 0x00FF);
@@ -560,7 +556,58 @@ void CheckEventsEC51(u8 result,u16 version)
 	RecordEventsECx(EVENT_ERC51,3,buf);
 }
 
+//单灯状态变化记录
+void CheckEventsEC52(u8 light_level)
+{
+	static u8 mirror_level = 255;
+	u8 buf[12];
+	static u8 cnt = 0;
+//	static u8 first = 1;
 
+//	if(first == 1)
+//	{
+//		first = 0;
+
+//		mirror_level = light_level;
+//	}
+
+	if(mirror_level != light_level)
+	{
+		cnt ++;
+
+		if(cnt >= 200)	//等待一段时间，计算电流和电压
+		{
+			cnt = 0;
+
+			memset(buf,0,14);
+
+			buf[0] = DeviceWorkMode;											//记录类型
+			buf[1] = 0x00;														//灯具序号
+			buf[2] = 0x01;
+			buf[3] = light_level;												//亮度
+
+			buf[4] = (u8)((p_tSensorMsg->in_put_voltage >> 8) & 0x00FF);		//发生时电压
+			buf[5] = (u8)(p_tSensorMsg->in_put_voltage & 0x00FF);
+
+			buf[6] = (u8)((p_tSensorMsg->in_put_current >> 8) & 0x00FF);		//发生时电流
+			buf[7] = (u8)(p_tSensorMsg->in_put_current & 0x00FF);
+
+			buf[8] = (u8)((((u16)p_tSensorMsg->in_put_power_p) >> 8) & 0x00FF);	//发生时电流
+			buf[9] = (u8)(((u16)p_tSensorMsg->in_put_power_p) & 0x00FF);
+
+			buf[10] = (u8)((p_tSensorMsg->in_put_pf >> 8) & 0x00FF);			//发生时电流
+			buf[11] = (u8)(p_tSensorMsg->in_put_pf & 0x00FF);
+
+			RecordEventsECx(EVENT_ERC52,12,buf);
+
+			mirror_level = light_level;
+		}
+	}
+	else
+	{
+		cnt = 0;
+	}
+}
 
 
 

@@ -1,6 +1,7 @@
 #include "common.h"
 #include "24cxx.h"
 #include "bcxx.h"
+#include "event.h"
 
 pRegularTime RegularTimeWeekDay = NULL;			//工作日策略
 pRegularTime RegularTimeWeekEnd = NULL;			//周末策略
@@ -53,8 +54,11 @@ float FaultInputVoltage = 0.0f;		//发生故障时的电压
 
 u8 CalendarClock[6];
 
-EventDetectConf_S EventDetectConf;
-EventRecordList_S EventRecordList;
+EventDetectConf_S EventDetectConf;	//事件参数配置
+EventRecordConf_S EventRecordConf;	//事件记录/上报参数配置
+long long EventEffective = 0;
+long long EventReport = 0;
+EventRecordList_S EventRecordList;	//事件记录列表
 
 
 
@@ -69,6 +73,7 @@ DeviceInfo_S DeviceInfo;					//设备信息
 FrameWareInfo_S FrameWareInfo;				//固件信息
 FrameWareState_S FrameWareState;			//固件升级状态
 IlluminanceThreshold_S IlluminanceThreshold;//光照度阈值
+EnergyRecord_S EnergyRecord;				//能耗记录
 
 
 
@@ -136,7 +141,7 @@ static const uint32_t crc32tab[] = {
  0xbdbdf21cL, 0xcabac28aL, 0x53b39330L, 0x24b4a3a6L,
  0xbad03605L, 0xcdd70693L, 0x54de5729L, 0x23d967bfL,
  0xb3667a2eL, 0xc4614ab8L, 0x5d681b02L, 0x2a6f2b94L,
- 0xb40bbe37L, 0xc30c8ea1L, 0x5a05df1bL, 0x2d02ef8dL 
+ 0xb40bbe37L, 0xc30c8ea1L, 0x5a05df1bL, 0x2d02ef8dL
 };
 
 
@@ -534,13 +539,13 @@ u16 GetCRC16(u8 *data,u16 len)
 u32 CRC32(const u8 *buf, u32 size, u32 temp,u8 flag)
 {
 	uint32_t i, crc,crc_e;
-	
+
 	crc = temp;
 	for (i = 0; i < size; i++)
 	{
 		crc = crc32tab[(crc ^ buf[i]) & 0xff] ^ (crc >> 8);
 	}
-	
+
 	if(flag != 0)
 	{
 		crc_e = crc^0xFFFFFFFF;
@@ -907,11 +912,11 @@ u8 CopyStrToPointer(u8 **pointer, u8 *str, u8 len)
 u8 ReadEventDetectTimeConf(void)
 {
 	u8 ret = 0;
-	u8 buf[ER_TIME_CONF_LEN];
+	u8 buf[EV_TIME_CONF_LEN];
 
-	memset(buf,0,ER_TIME_CONF_LEN);
+	memset(buf,0,EV_TIME_CONF_LEN);
 
-	ret = ReadDataFromEepromToMemory(buf,ER_TIME_CONF_ADD,ER_TIME_CONF_LEN);
+	ret = ReadDataFromEepromToMemory(buf,EV_TIME_CONF_ADD,EV_TIME_CONF_LEN);
 
 	if(ret == 1)
 	{
@@ -927,7 +932,7 @@ u8 ReadEventDetectTimeConf(void)
 		EventDetectConf.router_fault_detect_interval	= 3;
 		EventDetectConf.turn_on_collect_delay 			= 1;
 		EventDetectConf.turn_off_collect_delay 			= 1;
-		EventDetectConf.current_detect_delay 			= 10;
+		EventDetectConf.current_detect_delay 			= 5;
 	}
 
 	return ret;
@@ -937,11 +942,11 @@ u8 ReadEventDetectTimeConf(void)
 u8 ReadEventDetectThreConf(void)
 {
 	u8 ret = 0;
-	u8 buf[ER_THRE_CONF_LEN];
+	u8 buf[EV_THRE_CONF_LEN];
 
-	memset(buf,0,ER_THRE_CONF_LEN);
+	memset(buf,0,EV_THRE_CONF_LEN);
 
-	ret = ReadDataFromEepromToMemory(buf,ER_THRE_CONF_ADD,ER_THRE_CONF_LEN);
+	ret = ReadDataFromEepromToMemory(buf,EV_THRE_CONF_ADD,EV_THRE_CONF_LEN);
 
 	if(ret == 1)
 	{
@@ -964,9 +969,9 @@ u8 ReadEventDetectThreConf(void)
 	}
 	else
 	{
-		EventDetectConf.over_current_ratio 			= 15;
+		EventDetectConf.over_current_ratio 			= 20;
 		EventDetectConf.over_current_recovery_ratio = 5;
-		EventDetectConf.low_current_ratio 			= 15;
+		EventDetectConf.low_current_ratio 			= 20;
 		EventDetectConf.low_current_recovery_ratio 	= 5;
 
 		EventDetectConf.capacitor_fault_pf_ratio[0] = 0x13;				//50  单位0.01
@@ -984,6 +989,50 @@ u8 ReadEventDetectThreConf(void)
 		EventDetectConf.leakage_over_voltage_ratio 			= 60;
 		EventDetectConf.leakage_over_voltage_recovery_ratio = 36;
 	}
+
+	return ret;
+}
+
+//终端事件记录/上报使能配置
+u8 ReadEventRecordReportConf(void)
+{
+	u8 ret = 0;
+	u8 buf[EV_RECORD_REPORT_LEN];
+
+	memset(buf,0,EV_RECORD_REPORT_LEN);
+
+	ret = ReadDataFromEepromToMemory(buf,EV_RECORD_REPORT_ADD,EV_RECORD_REPORT_LEN);
+
+	if(ret == 1)
+	{
+		memcpy(EventRecordConf.effective,buf + 0,8);
+		memcpy(EventRecordConf.auto_report,buf + 8,8);
+	}
+	else
+	{
+		memset(EventRecordConf.effective,0xFF,8);
+		memset(EventRecordConf.auto_report,0xFF,8);
+	}
+	
+	EventRecordConf.auto_report[5] = 0xF0;		//电流过大/过小/异常开关灯事件不上报
+
+	EventEffective = ((((long long)EventRecordConf.effective[0]) << 56) & 0xFF00000000000000) +
+	                 ((((long long)EventRecordConf.effective[1]) << 48) & 0x00FF000000000000) +
+	                 ((((long long)EventRecordConf.effective[2]) << 40) & 0x0000FF0000000000) +
+	                 ((((long long)EventRecordConf.effective[3]) << 32) & 0x000000FF00000000) +
+	                 ((((long long)EventRecordConf.effective[4]) << 24) & 0x00000000FF000000) +
+	                 ((((long long)EventRecordConf.effective[5]) << 16) & 0x0000000000FF0000) +
+	                 ((((long long)EventRecordConf.effective[6]) <<  8) & 0x000000000000FF00) +
+	                 ((((long long)EventRecordConf.effective[7]) <<  0) & 0x00000000000000FF);
+
+	EventReport =    ((((long long)EventRecordConf.auto_report[0]) << 56) & 0xFF00000000000000) +
+	                 ((((long long)EventRecordConf.auto_report[1]) << 48) & 0x00FF000000000000) +
+	                 ((((long long)EventRecordConf.auto_report[2]) << 40) & 0x0000FF0000000000) +
+	                 ((((long long)EventRecordConf.auto_report[3]) << 32) & 0x000000FF00000000) +
+	                 ((((long long)EventRecordConf.auto_report[4]) << 24) & 0x00000000FF000000) +
+	                 ((((long long)EventRecordConf.auto_report[5]) << 16) & 0x0000000000FF0000) +
+	                 ((((long long)EventRecordConf.auto_report[6]) <<  8) & 0x000000000000FF00) +
+	                 ((((long long)EventRecordConf.auto_report[7]) <<  0) & 0x00000000000000FF);
 
 	return ret;
 }
@@ -1564,14 +1613,14 @@ u8 ReadFrameWareState(void)
 	else
 	{
 		RESET_STATE:
-		
+
 		ResetFrameWareState();
 	}
 
 	if(FrameWareState.state == FIRMWARE_DOWNLOADING ||
 	   FrameWareState.state == FIRMWARE_DOWNLOAD_WAIT)
 	{
-		page_num = (FIRMWARE_MAX_FLASH_ADD - FIRMWARE_BUCKUP_FLASH_BASE_ADD) / 2048;	//得到备份区的扇区总数
+		page_num = (FIRMWARE_LAST_PAGE_ADD - FIRMWARE_BUCKUP_FLASH_BASE_ADD) / 2048;	//得到备份区的扇区总数
 
 		FLASH_Unlock();						//解锁FLASH
 
@@ -1587,6 +1636,8 @@ u8 ReadFrameWareState(void)
 	{
 		UpdateSoftWareVer();
 		UpdateSoftWareReleaseDate();
+
+		CheckEventsEC51(0x00,DeviceInfo.software_ver);		//升级结果事件记录
 
 		goto RESET_STATE;
 	}
@@ -1618,6 +1669,8 @@ u8 ReadServerIP(void)
 
 #if defined(CHINA_VERSION)
 		sprintf((char *)ServerIP, "117.60.157.137");
+#elif defined(CTWING_VERSION)
+		sprintf((char *)ServerIP, "221.229.214.202");
 #elif defined(THAILAND_VERSION)
 		sprintf((char *)ServerIP, "159.138.237.223");
 #elif defined(DEBUG_VERSION)
@@ -1798,9 +1851,177 @@ u8 ReadRegularTimeGroups(void)
 	return ret;
 }
 
+u8 ReadEnergyRecord(void)
+{
+	u8 ret = 0;
+	u8 buf[ENERGY_RECORD_LEN];
+	memset(buf,0,ENERGY_RECORD_LEN);
+	ret = ReadDataFromEepromToMemory(buf,ENERGY_RECORD_ADD,ENERGY_RECORD_LEN);
+	if(ret == 1)
+	{
+		memcpy(&EnergyRecord,buf,sizeof(EnergyRecord_S));
+	}
+	else
+	{
+		memset(&EnergyRecord,0,ENERGY_RECORD_LEN);
+	}
+	return ret;
+}
+
+void WriteEnergyRecord(u8 reset)
+{
+	if(reset == 1)
+	{
+		memset(&EnergyRecord,0,ENERGY_RECORD_LEN);
+	}
+	WriteDataFromMemoryToEeprom((u8 *)&EnergyRecord,
+							    ENERGY_RECORD_ADD,
+								ENERGY_RECORD_LEN - 2);	//将数据写入EEPROM
+}
+
+u8 ReadEnergyRecordFlash(void)
+{
+	u8 ret = 0;
+	u8 i = 0;
+	u16 crc16 = 0;
+	u16 crc16_read = 0;
+	u8 buf[56];
+	
+	FLASH_Unlock(); 
+	
+	for(i = 0; i < 28; i ++)
+	{
+		STMFLASH_ReadBytes(FIRMWARE_LAST_PAGE_ADD + i * 2 + 1, &buf[i * 2 + 0],1);
+		STMFLASH_ReadBytes(FIRMWARE_LAST_PAGE_ADD + i * 2 + 0, &buf[i * 2 + 1],1);
+	}
+	
+	FLASH_ErasePage(FIRMWARE_LAST_PAGE_ADD);	//擦除当前FLASH扇区
+	
+	FLASH_Lock();
+	
+	crc16_read = ((((u16)buf[54]) << 8) & 0xFF00) + (((u16)buf[55]) & 0x00FF);
+	
+	crc16 = GetCRC16(buf,54);
+	
+	if(crc16_read == crc16)
+	{
+		memcpy(&EnergyRecord,buf,54);
+		
+		WriteEnergyRecord(0);
+		
+		ret = 1;
+	}
+	
+	return ret;
+}
+
+void WriteEnergyRecordFlash(void)
+{
+	u8 i = 0;
+	u16 crc16 = 0;
+	u8 buf[56];
+	u16 buf1[28];
+	
+	FLASH_Unlock(); 
+
+	memcpy(buf,&EnergyRecord,54);
+	
+	crc16 = GetCRC16(buf,54);
+	
+	buf[54 + 0] = (u8)((crc16 >> 8) & 0x00FF);
+	buf[54 + 1] = (u8)((crc16 >> 0) & 0x00FF);
+	
+	for(i = 0; i < 28; i ++)
+	{
+		buf1[i] = ((((u16)buf[i * 2 + 0]) << 8) & 0xFF00) + (((u16)buf[i * 2 + 1]) & 0x00FF);
+		
+		FLASH_ProgramHalfWord(FIRMWARE_LAST_PAGE_ADD + i * 2, buf1[i]);
+	}
+
+	FLASH_Lock();
+}
+
+void RefreshEnergyRecord(void)
+{
+	static time_t time_sec = 0;
+	static time_t time_sec1 = 0;
+	u32 gate_day_s = 0;
+	u32 gate_day_e = 0;
+	
+	if(GetSysTick1s() - time_sec1 >= 1)
+	{
+		time_sec1 = GetSysTick1s();
+		
+		if(GetTimeOK != 0)
+		{
+			gate_day_s = get_days_form_calendar(calendar.w_year,calendar.w_month,calendar.w_date);
+			gate_day_e = get_days_form_calendar(EnergyRecord.year + 2000,EnergyRecord.month,EnergyRecord.date);
+			
+			if(abs(gate_day_s - gate_day_e) >= 2)
+			{
+				EnergyRecord.energy_p_day = 0.0f;
+				EnergyRecord.energy_q_day = 0.0f;
+				EnergyRecord.energy_s_day = 0.0f;
+				EnergyRecord.year = calendar.w_year - 2000;
+				EnergyRecord.month = calendar.w_month;
+				EnergyRecord.date = calendar.w_date;
+				EnergyRecord.hour = calendar.hour;
+				EnergyRecord.minute = calendar.min;
+				EnergyRecord.second = calendar.sec;
+				
+				WriteEnergyRecord(0);
+			}
+			else if(gate_day_s - gate_day_e == 1)
+			{
+				if(calendar.hour >= 12)
+				{
+					EnergyRecord.energy_p_day = 0.0f;
+					EnergyRecord.energy_q_day = 0.0f;
+					EnergyRecord.energy_s_day = 0.0f;
+					EnergyRecord.year = calendar.w_year - 2000;
+					EnergyRecord.month = calendar.w_month;
+					EnergyRecord.date = calendar.w_date;
+					EnergyRecord.hour = calendar.hour;
+					EnergyRecord.minute = calendar.min;
+					EnergyRecord.second = calendar.sec;
+					
+					WriteEnergyRecord(0);
+				}
+			}
+			else
+			{
+				if(calendar.hour == 12 && 
+				   calendar.min == 0 &&
+				   calendar.sec <= 5)
+				{
+					EnergyRecord.energy_p_day = 0.0f;
+					EnergyRecord.energy_q_day = 0.0f;
+					EnergyRecord.energy_s_day = 0.0f;
+				}
+			}
+		}
+		
+		if(GetSysTick1s() - time_sec >= 600)
+		{
+			time_sec = GetSysTick1s();
+			
+			EnergyRecord.year = calendar.w_year - 2000;
+			EnergyRecord.month = calendar.w_month;
+			EnergyRecord.date = calendar.w_date;
+			EnergyRecord.hour = calendar.hour;
+			EnergyRecord.minute = calendar.min;
+			EnergyRecord.second = calendar.sec;
+			
+			WriteEnergyRecord(0);
+		}
+	}
+}
+
 //在EEPROM中读取运行参数
 void ReadParametersFromEEPROM(void)
 {
+	u8 ret = 0;
+	
 	ReadUpCommPortPara();
 	ReadDataUploadInterval();
 	ReadHeartBeatUploadInterval();
@@ -1823,12 +2044,21 @@ void ReadParametersFromEEPROM(void)
 	ReadRegularTimeGroups();
 	ReadEventDetectTimeConf();
 	ReadEventDetectThreConf();
+	ReadEventRecordReportConf();
 	ReadEventRecordList();
+	
+	ret = ReadEnergyRecordFlash();
+	
+	if(ret == 0)
+	{
+		ReadEnergyRecord();
+	}
 }
 
 //将数据打包成用户数据格式
 u16 PackUserData(u8 ctrl_code,u8 *inbuf,u16 inbuf_len,u8 *outbuf)
 {
+//	u16 i = 0;
 	u16 out_len = 0;
 
 	*(outbuf + 0)  = 0x68;
@@ -1844,6 +2074,11 @@ u16 PackUserData(u8 ctrl_code,u8 *inbuf,u16 inbuf_len,u8 *outbuf)
 	*(outbuf + 15 + inbuf_len + 1) = 0x16;
 
 	out_len = 15 + inbuf_len + 1 + 1;
+
+//	for(i = 0; i < out_len; i ++)
+//	{
+//		*(outbuf + i) ^= 0x99;
+//	}
 
 	return out_len;
 }
@@ -1919,31 +2154,55 @@ u16 UnPackSensorData(SensorMsg_S *msg,u8 *buf)
 		*(buf + i) = (u8)msg->in_put_pf;
 		i ++;
 
-		*(buf + i) = (u8)(msg->in_put_energy_p >> 24);
+		*(buf + i) = (u8)((msg->in_put_energy_p_day >> 24) & 0x000000FF);
 		i ++;
-		*(buf + i) = (u8)(msg->in_put_energy_p >> 16);
+		*(buf + i) = (u8)((msg->in_put_energy_p_day >> 16) & 0x000000FF);
 		i ++;
-		*(buf + i) = (u8)(msg->in_put_energy_p >> 8);
+		*(buf + i) = (u8)((msg->in_put_energy_p_day >> 8) & 0x000000FF);
 		i ++;
-		*(buf + i) = (u8)msg->in_put_energy_p;
-		i ++;
-
-		*(buf + i) = (u8)(msg->in_put_energy_q >> 24);
-		i ++;
-		*(buf + i) = (u8)(msg->in_put_energy_q >> 16);
-		i ++;
-		*(buf + i) = (u8)(msg->in_put_energy_q >> 8);
-		i ++;
-		*(buf + i) = (u8)msg->in_put_energy_q;
+		*(buf + i) = (u8)(msg->in_put_energy_p_day & 0x000000FF);
 		i ++;
 
-		*(buf + i) = (u8)(msg->in_put_energy_s >> 24);
+		*(buf + i) = (u8)((msg->in_put_energy_q_day >> 24) & 0x000000FF);
 		i ++;
-		*(buf + i) = (u8)(msg->in_put_energy_s >> 16);
+		*(buf + i) = (u8)((msg->in_put_energy_q_day >> 16) & 0x000000FF);
 		i ++;
-		*(buf + i) = (u8)(msg->in_put_energy_s >> 8);
+		*(buf + i) = (u8)((msg->in_put_energy_q_day >> 8) & 0x000000FF);
 		i ++;
-		*(buf + i) = (u8)msg->in_put_energy_s;
+		*(buf + i) = (u8)(msg->in_put_energy_q_day & 0x000000FF);
+		i ++;
+
+		*(buf + i) = (u8)((msg->in_put_energy_s_day >> 24) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)((msg->in_put_energy_s_day >> 16) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)((msg->in_put_energy_s_day >> 8) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)(msg->in_put_energy_s_day & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)((msg->in_put_energy_p_total >> 24) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)((msg->in_put_energy_p_total >> 16) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)((msg->in_put_energy_p_total >> 8) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)(msg->in_put_energy_p_total & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)((msg->in_put_energy_q_total >> 24) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)((msg->in_put_energy_q_total >> 16) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)((msg->in_put_energy_q_total >> 8) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)(msg->in_put_energy_q_total & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)((msg->in_put_energy_s_total >> 24) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)((msg->in_put_energy_s_total >> 16) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)((msg->in_put_energy_s_total >> 8) & 0x000000FF);
+		i ++;
+		*(buf + i) = (u8)(msg->in_put_energy_s_total & 0x000000FF);
 		i ++;
 
 		*(buf + i) = (u8)(msg->out_put_current >> 8);

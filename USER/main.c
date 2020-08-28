@@ -34,6 +34,7 @@ int main(void)
 	AT24CXX_Init();
 	DAC1_Init();
 	ADC1_DMA1_Init();
+	PVD_Init();
 	LED_Init();
 	RELAY_Init();
 	CD4051B_Init();

@@ -437,6 +437,42 @@ void TIM2_IRQHandler(void)
 	}
 }
 
+void PVD_Init(void)
+{
+	EXTI_InitTypeDef   EXTI_InitStructure;
+	NVIC_InitTypeDef   NVIC_InitStructure;
+
+	EXTI_DeInit();
+	EXTI_InitStructure.EXTI_Line = EXTI_Line16;
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising; 
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	EXTI_Init(&EXTI_InitStructure);
+
+	NVIC_InitStructure.NVIC_IRQChannel = PVD_IRQn; 
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+
+	PWR_PVDLevelConfig(PWR_PVDLevel_2V9);
+	PWR_PVDCmd(ENABLE);
+}
+
+void PVD_IRQHandler(void)
+{
+	EXTI_ClearITPendingBit(EXTI_Line16);
+	
+	if(PWR_GetFlagStatus(PWR_FLAG_PVDO))
+	{
+		WriteEnergyRecordFlash();
+		
+		printf("write ok\n\r");
+	}
+}
+
+
+
 
 
 

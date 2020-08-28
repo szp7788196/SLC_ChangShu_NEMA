@@ -48,6 +48,7 @@ u16 SetDefaultLightLevelPercent(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u
 u16 SetPeakStaggerTime(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 SetFaultDetectDelayPara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 SetFaultDetectThrePara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
+u16 SetEventRecordReportConf(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 GetReUpLoadPara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 GetHeartBeatUploadInterval(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 GetDataUploadInterval(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
@@ -63,6 +64,9 @@ u16 GetDefaultLightLevelPercent(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u
 u16 GetSensorData(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 GetPeakStaggerTime(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 u16 GetFaultEvents(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
+u16 GetFaultDetectDelayPara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
+u16 GetFaultDetectThrePara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
+u16 GetEventRecordReportConf(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf);
 
 
 

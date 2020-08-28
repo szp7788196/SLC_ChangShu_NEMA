@@ -276,9 +276,9 @@ float Att7059xGetChannel1PowerS(void)
 }
 
 //获取有功能量 单位千瓦
-float Att7059xGetEnergyP(void)
+double Att7059xGetEnergyP(void)
 {
-	static float energy_p = 0;
+	static double energy_p = 0;
 	u32 value = 0;
 	u8 ret = 0;
 
@@ -286,16 +286,16 @@ float Att7059xGetEnergyP(void)
 
 	if(ret == 1)
 	{
-		energy_p = (float)value / ELECTRIC_ENERGY_METER_CONSTANT;
+		energy_p = (double)value / ELECTRIC_ENERGY_METER_CONSTANT;
 	}
 
 	return energy_p;
 }
 
 //获取无功能量 单位千瓦
-float Att7059xGetEnergyQ(void)
+double Att7059xGetEnergyQ(void)
 {
-	static float energy_q = 0;
+	static double energy_q = 0;
 	u32 value = 0;
 	u8 ret = 0;
 
@@ -303,16 +303,16 @@ float Att7059xGetEnergyQ(void)
 
 	if(ret == 1)
 	{
-		energy_q = (float)value / ELECTRIC_ENERGY_METER_CONSTANT;
+		energy_q = (double)value / ELECTRIC_ENERGY_METER_CONSTANT;
 	}
 
 	return energy_q;
 }
 
 //获取视在能量 单位千瓦
-float Att7059xGetEnergyS(void)
+double Att7059xGetEnergyS(void)
 {
-	static float energy_s = 0;
+	static double energy_s = 0;
 	u32 value = 0;
 	u8 ret = 0;
 
@@ -320,7 +320,7 @@ float Att7059xGetEnergyS(void)
 
 	if(ret == 1)
 	{
-		energy_s = (float)value / ELECTRIC_ENERGY_METER_CONSTANT;
+		energy_s = (double)value / ELECTRIC_ENERGY_METER_CONSTANT;
 	}
 
 	return energy_s;

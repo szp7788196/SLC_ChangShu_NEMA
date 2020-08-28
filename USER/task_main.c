@@ -16,18 +16,24 @@ unsigned portBASE_TYPE MAIN_Satck;
 void vTaskMAIN(void *pvParameters)
 {
 	time_t times_sec = 0;
+	time_t times_sec1 = 0;
 	time_t time_cnt = 0;
+	u16 collect_cnt = 0;
+	
+	double current_sum = 0.0f;
+	
 	u8 get_e_para_ok = 0;
 
 	GetTimeOK = GetSysTimeState();
 
-	SetLightLevel(PowerInterface, DefaultLightLevelPercent);
+	SetLightLevel(PowerInterface, LightLevelPercent);
 
 	while(1)
 	{
 		if(GetSysTick1s() - times_sec >= 1)
 		{
 			times_sec = GetSysTick1s();
+			RefreshEnergyRecord();
 
 			if(GetTimeOK != 0)							//系统时间状态
 			{
@@ -56,14 +62,32 @@ void vTaskMAIN(void *pvParameters)
 		}
 		else
 		{
-			if(GetSysTick1s() - time_cnt >= EventDetectConf.current_detect_delay * 60 / 2)			//等到电流检测延时的1/2时采集电参数
+			if(get_e_para_ok == 0)
 			{
-				if(get_e_para_ok == 0)		//未获取当前电参数
+				if(time_cnt < EventDetectConf.current_detect_delay * 60)
 				{
+					if(GetSysTick1s() - times_sec1 >= 1)
+					{
+						times_sec1 = GetSysTick1s();
+						
+						time_cnt ++;
+						
+						if(time_cnt > 10)
+						{
+							if(InputCurrent != 0.0f && InputCurrent <= 9999.0f)
+							{
+								current_sum += InputCurrent;
+							
+								collect_cnt ++;
+							}
+						}
+					}
+				}
+				else
+				{
+					FaultInputCurrent = current_sum / (float)collect_cnt;
+					
 					get_e_para_ok = 1;		//以获取当前电参数
-
-					FaultInputCurrent = InputCurrent;		//获取当前电流值
-					FaultInputVoltage = InputVoltage;		//获取当前电压值
 				}
 			}
 		}
@@ -74,6 +98,7 @@ void vTaskMAIN(void *pvParameters)
 		CheckEventsEC18(LightLevelPercent);	//单灯异常关灯记录
 		CheckEventsEC19(LightLevelPercent,get_e_para_ok);	//单灯电流过大记录
 		CheckEventsEC20(LightLevelPercent,get_e_para_ok);	//单灯电流过小记录
+		CheckEventsEC52(LightLevelPercent);
 
 		if(ResetFlag == 1)									//接收到重启的命令
 		{
@@ -82,6 +107,10 @@ void vTaskMAIN(void *pvParameters)
 
 			__disable_fault_irq();							//重启指令
 			NVIC_SystemReset();
+		}
+		else if(ResetFlag == 4)
+		{
+			WriteEnergyRecord(1);
 		}
 
 		if(FrameWareState.state == FIRMWARE_DOWNLOADED)		//固件下载完成,即将引导新程序

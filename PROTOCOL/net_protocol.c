@@ -71,7 +71,7 @@ s16 NetDataFrameHandle(u8 *outbuf)
 u16 NetDataAnalysis(u8 *inbuf,u16 len,u8 *outbuf)
 {
 	u16 ret = 0;
-
+//	u16 i = 0;
 	u8 message_id = 0;
 	u16 cmd_id = 0;
 	u8 *msg = NULL;
@@ -93,12 +93,21 @@ u16 NetDataAnalysis(u8 *inbuf,u16 len,u8 *outbuf)
 	{
 		case 0x81:				//命令下发
 			cmd_id = (((u16)(*(inbuf + 1))) << 8) + (u16)(*(inbuf + 2));
+		
+//			for(i = 0; i < len - 5; i ++)
+//			{
+//				*(inbuf + 5 + i) ^= 0x99;
+//			}
 
 			msg = inbuf + 5;	//指到用户数据
 		break;
 
 		case 0x84:				//事件响应
-
+//			for(i = 0; i < len - 3; i ++)
+//			{
+//				*(inbuf + 3 + i) ^= 0x99;
+//			}
+			
 			msg = inbuf + 3;	//指到用户数据
 		break;
 
@@ -221,6 +230,10 @@ u16 NetDataAnalysis(u8 *inbuf,u16 len,u8 *outbuf)
 		case 0x72:		//设置故障检测阈值参数
 			ret = SetFaultDetectThrePara(cmd_id,ctrl_code,msg,data_len,outbuf);
 		break;
+		
+		case 0x73:		//设置事件记录/上报配置
+			ret = SetEventRecordReportConf(cmd_id,ctrl_code,msg,data_len,outbuf);
+		break;
 
 		case 0x90:		//读取超时时间、重发次数命令
 			ret = GetReUpLoadPara(cmd_id,ctrl_code,msg,data_len,outbuf);
@@ -280,6 +293,18 @@ u16 NetDataAnalysis(u8 *inbuf,u16 len,u8 *outbuf)
 
 		case 0x9E:		//读取故障事件命令
 			ret = GetFaultEvents(cmd_id,ctrl_code,msg,data_len,outbuf);
+		break;
+		
+		case 0x9F:		//读取故障检测延时参数
+			ret = GetFaultEvents(cmd_id,ctrl_code,msg,data_len,outbuf);
+		break;
+		
+		case 0xA0:		//读取故障检测阈值参数
+			ret = GetFaultEvents(cmd_id,ctrl_code,msg,data_len,outbuf);
+		break;
+		
+		case 0xA1:		//读取事件记录/上报配置
+			ret = GetEventRecordReportConf(cmd_id,ctrl_code,msg,data_len,outbuf);
 		break;
 
 		case 0x80:		//事件响应
@@ -383,6 +408,13 @@ u16 CombineFaultEventFrame(u8 *outbuf)
 	u8 temp_buf[32];
 
 	xSemaphoreTake(xMutex_EVENT_RECORD, portMAX_DELAY);
+	
+	if((EventReport & 
+	  ((long long)1 << ((long long)EventRecordList.lable1[EventRecordList.ec1 - EventRecordList.important_event_flag] - 1))) 
+	  == 0x00)
+	{
+		return 0;
+	}
 
 	switch(EventRecordList.lable1[EventRecordList.ec1 - EventRecordList.important_event_flag])
 	{
@@ -1184,7 +1216,7 @@ u16 SetFrameWareInfo(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
 
 				WriteFrameWareStateToEeprom();	//将固件升级状态写入EEPROM
 
-				page_num = (FIRMWARE_MAX_FLASH_ADD - FIRMWARE_BUCKUP_FLASH_BASE_ADD) / 2048;	//得到备份区的扇区总数
+				page_num = (FIRMWARE_LAST_PAGE_ADD - FIRMWARE_BUCKUP_FLASH_BASE_ADD) / 2048;	//得到备份区的扇区总数
 
 				FLASH_Unlock();						//解锁FLASH
 
@@ -1277,10 +1309,15 @@ u16 SetFaultDetectDelayPara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *o
 		EventDetectConf.turn_on_collect_delay 			= *(inbuf + 2);
 		EventDetectConf.turn_off_collect_delay 			= *(inbuf + 3);
 		EventDetectConf.current_detect_delay 			= *(inbuf + 4);
+		
+		if(EventDetectConf.current_detect_delay == 0)
+		{
+			EventDetectConf.current_detect_delay = 1;
+		}
 
 		WriteDataFromMemoryToEeprom(inbuf + 0,
-									ER_TIME_CONF_ADD,
-									ER_TIME_CONF_LEN - 2);	//将数据写入EEPROM
+									EV_TIME_CONF_ADD,
+									EV_TIME_CONF_LEN - 2);	//将数据写入EEPROM
 
 		buf[1] = 0;
 	}
@@ -1290,7 +1327,7 @@ u16 SetFaultDetectDelayPara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *o
 	return ret;
 }
 
-//设置故障检测延时参数
+//设置故障检测阈值参数
 u16 SetFaultDetectThrePara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
 {
 	u16 ret = 0;
@@ -1319,8 +1356,52 @@ u16 SetFaultDetectThrePara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *ou
 		EventDetectConf.leakage_over_voltage_recovery_ratio = *(inbuf + 15);
 
 		WriteDataFromMemoryToEeprom(inbuf + 0,
-									ER_THRE_CONF_ADD,
-									ER_THRE_CONF_LEN - 2);	//将数据写入EEPROM
+									EV_THRE_CONF_ADD,
+									EV_THRE_CONF_LEN - 2);	//将数据写入EEPROM
+
+		buf[1] = 0;
+	}
+
+	ret = PackAckPacket(cmd_id,0x80,buf,2,outbuf);
+
+	return ret;
+}
+
+//设置事件记录/上报配置
+u16 SetEventRecordReportConf(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
+{
+	u16 ret = 0;
+	u8 buf[2];
+
+	buf[0] = ctrl_code;
+	buf[1] = 1;
+
+	if(data_len == 16)
+	{
+		memcpy(EventRecordConf.effective,inbuf + 0,8);
+		memcpy(EventRecordConf.auto_report,inbuf + 8,8);
+		
+		EventEffective = ((((long long)EventRecordConf.effective[0]) << 56) & 0xFF00000000000000) +
+						 ((((long long)EventRecordConf.effective[1]) << 48) & 0x00FF000000000000) +
+						 ((((long long)EventRecordConf.effective[2]) << 40) & 0x0000FF0000000000) +
+						 ((((long long)EventRecordConf.effective[3]) << 32) & 0x000000FF00000000) +
+						 ((((long long)EventRecordConf.effective[4]) << 24) & 0x00000000FF000000) +
+						 ((((long long)EventRecordConf.effective[5]) << 16) & 0x0000000000FF0000) +
+						 ((((long long)EventRecordConf.effective[6]) <<  8) & 0x000000000000FF00) +
+						 ((((long long)EventRecordConf.effective[7]) <<  0) & 0x00000000000000FF);
+
+		EventReport =    ((((long long)EventRecordConf.auto_report[0]) << 56) & 0xFF00000000000000) +
+						 ((((long long)EventRecordConf.auto_report[1]) << 48) & 0x00FF000000000000) +
+						 ((((long long)EventRecordConf.auto_report[2]) << 40) & 0x0000FF0000000000) +
+						 ((((long long)EventRecordConf.auto_report[3]) << 32) & 0x000000FF00000000) +
+						 ((((long long)EventRecordConf.auto_report[4]) << 24) & 0x00000000FF000000) +
+						 ((((long long)EventRecordConf.auto_report[5]) << 16) & 0x0000000000FF0000) +
+						 ((((long long)EventRecordConf.auto_report[6]) <<  8) & 0x000000000000FF00) +
+						 ((((long long)EventRecordConf.auto_report[7]) <<  0) & 0x00000000000000FF);
+
+		WriteDataFromMemoryToEeprom(inbuf + 0,
+									EV_RECORD_REPORT_ADD,
+									EV_RECORD_REPORT_LEN - 2);	//将数据写入EEPROM
 
 		buf[1] = 0;
 	}
@@ -1949,20 +2030,82 @@ u16 GetFaultEvents(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
 	return ret;
 }
 
+//读取故障检测延时参数
+u16 GetFaultDetectDelayPara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
+{
+	u16 ret = 0;
+	u8 buf[5];
+	u16 len = 0;
 
+	if(data_len == 0)
+	{
+		buf[0] = EventDetectConf.comm_falut_detect_interval;
+		buf[1] = EventDetectConf.router_fault_detect_interval;
+		buf[2] = EventDetectConf.turn_on_collect_delay;
+		buf[3] = EventDetectConf.turn_off_collect_delay;
+		buf[4] = EventDetectConf.current_detect_delay;
 
+		len = 5;
+	}
 
+	ret = PackAckPacket(cmd_id,ctrl_code,buf,len,outbuf);
 
+	return ret;
+}
 
+//读取故障检测阈值参数
+u16 GetFaultDetectThrePara(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
+{
+	u16 ret = 0;
+	u8 buf[16];
+	u16 len = 0;
 
+	if(data_len == 0)
+	{
+		buf[0] = EventDetectConf.over_current_ratio;
+		buf[1] = EventDetectConf.over_current_recovery_ratio;
+		buf[2] = EventDetectConf.low_current_ratio;
+		buf[3] = EventDetectConf.low_current_recovery_ratio;
+		
+		memcpy(buf + 4,EventDetectConf.capacitor_fault_pf_ratio,2);
+		memcpy(buf + 6,EventDetectConf.capacitor_fault_recovery_pf_ratio,2);
+		
+		buf[8] = EventDetectConf.lamps_over_current_ratio;
+		buf[9] = EventDetectConf.lamps_over_current_recovery_ratio;
+		buf[10] = EventDetectConf.fuse_over_current_ratio;
+		buf[11] = EventDetectConf.fuse_over_current_recovery_ratio;
+		buf[12] = EventDetectConf.leakage_over_current_ratio;
+		buf[13] = EventDetectConf.leakage_over_current_recovery_ratio;
+		buf[14] = EventDetectConf.leakage_over_voltage_ratio;
+		buf[15] = EventDetectConf.leakage_over_voltage_recovery_ratio;
 
+		len = 16;
+	}
 
+	ret = PackAckPacket(cmd_id,ctrl_code,buf,len,outbuf);
 
+	return ret;
+}
 
+//读取事件记录/上报配置
+u16 GetEventRecordReportConf(u16 cmd_id,u8 ctrl_code,u8 *inbuf,u16 data_len,u8 *outbuf)
+{
+	u16 ret = 0;
+	u8 buf[16];
+	u16 len = 0;
 
+	if(data_len == 0)
+	{
+		memcpy(buf + 0,EventRecordConf.effective,8);
+		memcpy(buf + 8,EventRecordConf.auto_report,8);
 
+		len = 16;
+	}
 
+	ret = PackAckPacket(cmd_id,ctrl_code,buf,len,outbuf);
 
+	return ret;
+}
 
 
 

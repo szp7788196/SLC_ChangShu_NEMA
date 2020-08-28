@@ -17,9 +17,12 @@ typedef struct SensorMsg
 	s16 in_put_power_q;
 	u16 in_put_power_s;
 	u16 in_put_pf;
-	u32 in_put_energy_p;
-	u32 in_put_energy_q;
-	u32 in_put_energy_s;
+	u32 in_put_energy_p_day;
+	u32 in_put_energy_q_day;
+	u32 in_put_energy_s_day;
+	u32 in_put_energy_p_total;
+	u32 in_put_energy_q_total;
+	u32 in_put_energy_s_total;
 	u16 out_put_current;
 	u16 out_put_voltage;
 	u8 light_level;
@@ -31,6 +34,21 @@ typedef struct SensorMsg
 	u8 minute;
 	u8 second;
 }SensorMsg_S;
+typedef struct EnergyRecord
+{
+	double energy_p_day;
+	double energy_q_day;
+	double energy_s_day;
+	double energy_p_total;
+	double energy_q_total;
+	double energy_s_total;
+	u8 year;
+	u8 month;
+	u8 date;
+	u8 hour;
+	u8 minute;
+	u8 second;
+}EnergyRecord_S;
 
 
 extern float InputCurrent;
@@ -40,9 +58,9 @@ extern float InputPowerP;
 extern float InputPowerQ;
 extern float InputPowerS;
 extern float InputPf;
-extern float InputEnergyP;
-extern float InputEnergyQ;
-extern float InputEnergyS;
+extern double InputEnergyP;
+extern double InputEnergyQ;
+extern double InputEnergyS;
 extern float Temperature;
 extern float Humidity;
 extern float Illumination;

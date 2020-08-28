@@ -60,6 +60,8 @@ void Usart2FrameSend(void);
 u8 UsartSendString(USART_TypeDef* USARTx,u8 *str, u16 len);
 void TIM2_Init(u16 arr,u16 psc);
 
+void PVD_Init(void);
+
 #endif
 
 

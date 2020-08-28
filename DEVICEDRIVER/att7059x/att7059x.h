@@ -9,10 +9,10 @@
 
 
 
-#define POWER_RATIO						0.01777947713f		//功率转换系数
-#define ELECTRIC_ENERGY_METER_CONSTANT	3200.0f				//电能表常数
-#define CURRENT_RATIO					0.01144472f			//电流转换系数
-#define VOLTAGE_RATIO					0.00018665758f		//电压转换系数
+#define POWER_RATIO						0.0187939698f		//功率转换系数
+#define ELECTRIC_ENERGY_METER_CONSTANT	6400.0f				//电能表常数
+#define CURRENT_RATIO					0.011531979f		//电流转换系数
+#define VOLTAGE_RATIO					0.0002001529511f	//电压转换系数
 
 
 
@@ -29,9 +29,9 @@ float Att7059xGetVoltageFreq(void);
 float Att7059xGetChannel1PowerP(void);
 float Att7059xGetChannel1PowerQ(void);
 float Att7059xGetChannel1PowerS(void);
-float Att7059xGetEnergyP(void);
-float Att7059xGetEnergyQ(void);
-float Att7059xGetEnergyS(void);
+double Att7059xGetEnergyP(void);
+double Att7059xGetEnergyQ(void);
+double Att7059xGetEnergyS(void);
 s32 Att7059xGetMaxVoltageADCValue(void);
 
 
